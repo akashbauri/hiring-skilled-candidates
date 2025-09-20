@@ -1,79 +1,87 @@
-# hiring-skilled-candidates
-AI-powered candidate interview platform with live voice recording, speech-to-text transcription, and automated assessment scoring
-# 🎯 Hiring Skilled Candidates
+# 🎯 Hiring Skilled Candidates - AI-Powered Interview Platform
 
-An intelligent AI-powered candidate interview and assessment platform that revolutionizes the hiring process through live voice interactions, automated transcription, and smart scoring algorithms.
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-app-url.streamlit.app)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 🚀 Features
+> An intelligent AI-powered candidate interview and assessment platform that revolutionizes the hiring process through live voice interactions, experience-based questioning, and comprehensive evaluation.
 
-### 🎤 Live Voice Interview System
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Technology Stack](#technology-stack)
+- [Installation](#installation)
+- [Usage](#usage)
+- [AI Evaluation System](#ai-evaluation-system)
+- [Question Database](#question-database)
+- [Results & Reports](#results--reports)
+- [Configuration](#configuration)
+- [Developer](#developer)
+- [License](#license)
+
+## 🚀 Overview
+
+The **Hiring Skilled Candidates** platform is a comprehensive AI-driven interview system designed to streamline the technical hiring process. It combines live voice recording, intelligent question generation, and advanced AI evaluation to provide HR teams with detailed candidate assessments.
+
+### 🎯 Project Purpose
+
+This platform addresses the challenge of conducting consistent, comprehensive technical interviews by:
+- **Automating** the interview process with AI-powered evaluation
+- **Standardizing** assessment criteria across all candidates
+- **Scaling** interview capabilities without compromising quality
+- **Providing** detailed insights for informed hiring decisions
+
+## ✨ Key Features
+
+### 🎤 **Live Voice Interview System**
 - **Real-time microphone recording** directly in the browser
-- **Voice introduction** capture for communication skill assessment
-- **Timed skill-based questions** with live audio responses
-- **No file upload required** - seamless recording experience
+- **Professional voice introduction** capture for communication assessment
+- **Seamless audio processing** without file upload requirements
+- **Cross-browser compatibility** for universal access
 
-### 🤖 AI-Powered Assessment
-- **Automatic Speech Recognition (ASR)** using Hugging Face Whisper model
-- **Intelligent scoring algorithm** based on keyword analysis and response quality
-- **Real-time transcription** of all voice responses
-- **Automated pass/fail determination** with 70% threshold
+### 🤖 **AI-Powered Evaluation Engine**
+- **Advanced scoring algorithms** that analyze answer quality, not just presence
+- **Experience-level adaptive evaluation** with different expectations
+- **Technical vocabulary analysis** using skill-specific keyword detection
+- **Comprehensive feedback generation** with improvement suggestions
 
-### 📊 Comprehensive Reporting
-- **Complete candidate profiles** with personal and professional details
-- **Full interview transcripts** for all questions and introduction
-- **Individual question scoring** with detailed breakdown
-- **Downloadable CSV reports** for HR team analysis
-- **Professional assessment summary** with overall evaluation
+### 📊 **Experience-Based Question Intelligence**
+- **Fresher Level (0-1 years):** Basic concepts with simple examples
+- **Intermediate Level (1-3 years):** Conceptual questions with medium complexity
+- **Experienced Level (3+ years):** Advanced concepts with architecture focus
+- **5 questions per skill** for thorough assessment
+- **5 project experience questions** covering real-world scenarios
+
+### 📈 **Comprehensive Skills Assessment**
+- **10+ Popular Skills Covered:** Python, JavaScript, React, Django, MySQL, APIs, and more
+- **Dynamic Question Generation:** Questions adapt to candidate's skill set
+- **Individual Skill Scoring:** Performance breakdown per technology
+- **Project-Based Evaluation:** Real work experience assessment
+
+### 📧 **Automated HR Integration**
+- **Email Automation:** Results sent to akashbaurics40@gmail.com
+- **Google Sheets Integration:** Real-time data collection and dashboard
+- **Detailed Reports:** Downloadable CSV with complete analysis
+- **Professional Formatting:** HTML email reports with comprehensive insights
 
 ## 🛠️ Technology Stack
 
-- **Frontend:** Streamlit (Modern web application framework)
-- **AI/ML:** Hugging Face Transformers (Whisper ASR model)
-- **Audio Processing:** Browser-native audio recording
-- **Data Management:** Pandas for report generation
-- **Deployment:** Streamlit Community Cloud
+- **Frontend Framework:** Streamlit (Modern web application framework)
+- **Programming Language:** Python 3.8+
+- **AI/ML Processing:** Advanced evaluation algorithms with skill-specific analysis
+- **Audio Processing:** Browser-native live recording capabilities
+- **Data Management:** Pandas for report generation and data manipulation
+- **Cloud Deployment:** Streamlit Community Cloud
+- **Integration:** Google Sheets API, Email automation
 
-## 🎯 Use Cases
+## 🚀 Installation
 
-- **Technical Interviews:** Assess programming knowledge and problem-solving skills
-- **Communication Evaluation:** Analyze verbal communication and presentation abilities
-- **Remote Hiring:** Conduct interviews without geographical limitations
-- **Skill Assessment:** Evaluate specific technical competencies
-- **HR Automation:** Reduce manual interview processing time
+### Prerequisites
+- Python 3.8 or higher
+- Modern web browser with microphone support
+- Internet connection for cloud deployment
 
-## 👨‍💻 Developer
+### Local Development Setup
 
-**Developed by:** Akash Bauri  
-📧 **Email:** akashbauri16021998@gmail.com  
-📞 **Phone:** 8002778855
-
-## 🌟 Key Benefits
-
-- ✅ **Zero Setup:** No installation required for candidates or HR teams
-- ✅ **Professional Experience:** Modern web interface with intuitive design
-- ✅ **Automated Processing:** AI handles transcription and initial scoring
-- ✅ **Scalable Solution:** Handle multiple candidates efficiently
-- ✅ **Data-Driven:** Generate comprehensive reports for informed decisions
-- ✅ **Time-Efficient:** Streamline the entire interview process
-
-## 🚀 Live Demo
-
-Experience the platform: [Your Streamlit App URL]
-
-## 📝 Sample Interview Questions
-
-1. **Technical Skills:** "Explain the fundamentals of Python programming"
-2. **API Experience:** "Describe your experience working with APIs"
-3. **Project Experience:** "Tell us about a challenging project you worked on"
-
-## 🏆 Project Highlights
-
-- **Real-time voice processing** with instant feedback
-- **Professional-grade reporting** suitable for enterprise use
-- **Modern UI/UX** designed for both candidates and HR professionals
-- **AI-powered insights** for objective candidate evaluation
-- **Cloud-based deployment** ensuring accessibility and scalability
-
----
-
-*This project demonstrates advanced integration of AI, voice processing, and web application development for practical HR automation solutions.*
+1. **Clone the repository**
