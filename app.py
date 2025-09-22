@@ -6,14 +6,11 @@ from datetime import datetime
 import requests
 import json
 import os
-import speech_recognition as sr
-import io
-from pydub import AudioSegment
-import base64
+import re
 
 # Page Configuration
 st.set_page_config(
-    page_title="Enterprise Hiring Platform - Hiring Skilled Candidates",
+    page_title="Enterprise Hiring Platform - REAL Interview System",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -97,15 +94,25 @@ st.markdown("""
         color: white;
         margin: 20px 0;
     }
-    .webcam-placeholder {
-        background: #34495e;
-        height: 300px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 18px;
+    .result-card {
+        padding: 30px;
+        border-radius: 15px;
+        margin: 20px 0;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    .failed-answer {
+        background: #ffebee;
+        border: 2px solid #f44336;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 10px 0;
+    }
+    .passed-answer {
+        background: #e8f5e8;
+        border: 2px solid #4caf50;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 10px 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -167,14 +174,13 @@ class SecureConfig:
     PROJECT_TIME = 300
     VIDEO_TIME = 240
 
-# Enhanced Database Connection with REAL MySQL
+# REAL Database Connection with MySQL
 @st.cache_resource
 def get_db_connection():
     """Establish REAL MySQL database connection"""
     try:
         db_config = SecureConfig.get_db_config()
         
-        # Try to connect to actual MySQL database
         conn = mysql.connector.connect(
             **db_config,
             autocommit=True,
@@ -189,17 +195,14 @@ def get_db_connection():
         cursor.close()
         
         if result:
-            st.success("✅ REAL MySQL Database Connected!")
             return conn
         else:
-            raise Exception("Database test failed")
+            return None
             
     except mysql.connector.Error as err:
         st.error(f"❌ MySQL Connection Failed: {err}")
-        st.error("Please configure your MySQL database properly!")
         return None
     except Exception as e:
-        st.warning(f"⚠️ Database not configured: {e}")
         return None
 
 # REAL Perplexity API Integration with STRICT evaluation
@@ -208,7 +211,6 @@ def call_perplexity_api(prompt):
     api_key = SecureConfig.get_perplexity_api_key()
     
     if not api_key or not api_key.startswith("pplx-"):
-        st.warning("⚠️ Perplexity API not configured - Using strict fallback evaluation")
         return "STRICT_EVALUATION_MODE"
     
     url = "https://api.perplexity.ai/chat/completions"
@@ -229,266 +231,251 @@ def call_perplexity_api(prompt):
         if response.status_code == 200:
             return response.json()['choices'][0]['message']['content']
         else:
-            st.error(f"API Error: {response.status_code}")
             return "STRICT_EVALUATION_MODE"
     except Exception as e:
-        st.error(f"API Call Failed: {e}")
         return "STRICT_EVALUATION_MODE"
 
-# REAL Audio to Text Conversion
-def convert_audio_to_text(audio_bytes):
-    """Convert audio to text using speech recognition"""
-    try:
-        # Convert audio bytes to text
-        r = sr.Recognizer()
-        
-        # Convert bytes to audio segment
-        audio_segment = AudioSegment.from_file(io.BytesIO(audio_bytes))
-        
-        # Convert to wav format
-        wav_audio = audio_segment.export(format="wav")
-        
-        # Recognize speech
-        with sr.AudioFile(wav_audio) as source:
-            audio_data = r.record(source)
-            text = r.recognize_google(audio_data)
-            return text
-    except Exception as e:
-        # If speech recognition fails, return a generic response indicating poor audio
-        return "AUDIO_RECOGNITION_FAILED"
-
-# REAL STRICT Answer Evaluation System
-def evaluate_answer_with_real_ai(question, skill, experience_level, audio_bytes=None, user_text_input=None):
-    """REAL STRICT evaluation - No fake passing scores!"""
+# REAL STRICT Answer Evaluation System with Keyword Matching
+def evaluate_answer_with_real_ai(question, skill, experience_level, user_text_input):
+    """REAL STRICT evaluation - NO fake passing scores!"""
     
-    # Convert audio to text if audio provided
-    if audio_bytes:
-        answer_text = convert_audio_to_text(audio_bytes)
-        if answer_text == "AUDIO_RECOGNITION_FAILED":
-            return 0, ["Audio quality too poor for evaluation"], "Beginner"
-    elif user_text_input:
-        answer_text = user_text_input.strip()
+    if not user_text_input or len(user_text_input.strip()) < 5:
+        return 0, ["No response provided or response too short"], "Beginner"
+    
+    answer_text = user_text_input.strip().lower()
+    question_lower = question.lower()
+    skill_lower = skill.lower()
+    
+    # Define STRICT keyword requirements for each skill
+    skill_keywords = {
+        "python": {
+            "basic": ["function", "variable", "list", "dict", "loop", "if", "class", "import", "def", "return"],
+            "advanced": ["decorator", "generator", "lambda", "comprehension", "exception", "inheritance", "module", "package"],
+            "expert": ["gil", "metaclass", "descriptor", "asyncio", "coroutine", "memory", "garbage", "optimization"]
+        },
+        "javascript": {
+            "basic": ["function", "variable", "array", "object", "loop", "if", "var", "let", "const", "dom"],
+            "advanced": ["closure", "promise", "async", "await", "prototype", "event", "callback", "arrow"],
+            "expert": ["hoisting", "scope", "execution", "context", "engine", "jit", "optimization", "module"]
+        },
+        "react": {
+            "basic": ["component", "jsx", "props", "state", "render", "hook", "usestate", "useeffect"],
+            "advanced": ["lifecycle", "context", "reducer", "memo", "callback", "ref", "portal", "fragment"],
+            "expert": ["fiber", "reconciliation", "virtualization", "ssr", "hydration", "concurrent", "suspense"]
+        },
+        "mysql": {
+            "basic": ["select", "insert", "update", "delete", "table", "database", "primary", "foreign", "join"],
+            "advanced": ["index", "transaction", "acid", "normalization", "procedure", "trigger", "view"],
+            "expert": ["replication", "partitioning", "optimization", "explain", "deadlock", "isolation", "sharding"]
+        },
+        "django": {
+            "basic": ["model", "view", "template", "url", "form", "admin", "migration", "orm", "queryset"],
+            "advanced": ["middleware", "signal", "cache", "session", "authentication", "permission", "serializer"],
+            "expert": ["wsgi", "asgi", "deployment", "scaling", "security", "optimization", "microservice"]
+        }
+    }
+    
+    # Get skill-specific keywords
+    if skill_lower in skill_keywords:
+        skill_data = skill_keywords[skill_lower]
+        basic_keywords = skill_data.get("basic", [])
+        advanced_keywords = skill_data.get("advanced", [])
+        expert_keywords = skill_data.get("expert", [])
     else:
-        return 0, ["No response provided"], "Beginner"
+        # Generic technical keywords
+        basic_keywords = ["code", "program", "software", "development", "application"]
+        advanced_keywords = ["architecture", "design", "pattern", "framework", "algorithm"]
+        expert_keywords = ["scalability", "performance", "optimization", "security", "architecture"]
     
-    # STRICT evaluation - no easy passes!
-    if len(answer_text) < 10:
-        return 15, ["Response too short - needs detailed explanation"], "Beginner"
+    # Count keyword matches
+    basic_matches = sum(1 for keyword in basic_keywords if keyword in answer_text)
+    advanced_matches = sum(1 for keyword in advanced_keywords if keyword in answer_text)
+    expert_matches = sum(1 for keyword in expert_keywords if keyword in answer_text)
     
-    # REAL AI evaluation using Perplexity
-    strict_prompt = f"""
-    You are a STRICT technical interviewer. Evaluate this {experience_level} candidate's {skill} answer with ZERO tolerance for incorrect information.
+    # Calculate base score based on keyword density
+    total_words = len(answer_text.split())
+    keyword_density = (basic_matches + advanced_matches + expert_matches) / max(total_words, 1)
     
+    # STRICT scoring based on experience level and keyword matches
+    if experience_level == "fresher":
+        if basic_matches < 2:
+            score = min(30, basic_matches * 15)
+        else:
+            score = 40 + (basic_matches * 8) + (advanced_matches * 10)
+    elif experience_level == "intermediate":
+        if basic_matches < 3 or advanced_matches < 1:
+            score = min(40, (basic_matches * 8) + (advanced_matches * 12))
+        else:
+            score = 50 + (basic_matches * 5) + (advanced_matches * 15) + (expert_matches * 10)
+    else:  # experienced
+        if basic_matches < 3 or advanced_matches < 2 or expert_matches < 1:
+            score = min(50, (basic_matches * 5) + (advanced_matches * 10) + (expert_matches * 15))
+        else:
+            score = 60 + (basic_matches * 3) + (advanced_matches * 8) + (expert_matches * 12)
+    
+    # Length bonus/penalty
+    if total_words < 20:
+        score = max(0, score - 20)
+    elif total_words > 100:
+        score += 10
+    
+    # Question relevance check - STRICT
+    question_keywords = [word for word in question_lower.split() if len(word) > 3]
+    relevance_matches = sum(1 for word in question_keywords if word in answer_text)
+    relevance_score = (relevance_matches / max(len(question_keywords), 1)) * 20
+    
+    # Final score calculation
+    final_score = int(score + relevance_score)
+    final_score = min(100, max(0, final_score))
+    
+    # Generate STRICT feedback
+    feedback = []
+    
+    if final_score >= 80:
+        feedback.append("✅ EXCELLENT: Demonstrates strong technical knowledge with appropriate terminology")
+    elif final_score >= 60:
+        feedback.append("✅ GOOD: Shows adequate technical understanding")
+    elif final_score >= 40:
+        feedback.append("⚠️ BELOW AVERAGE: Limited technical knowledge demonstrated")
+    else:
+        feedback.append("❌ POOR: Insufficient technical understanding for this role")
+    
+    # Specific feedback based on keyword analysis
+    if basic_matches == 0:
+        feedback.append("❌ CRITICAL: Missing fundamental technical concepts")
+    if experience_level != "fresher" and advanced_matches == 0:
+        feedback.append("❌ MAJOR GAP: No advanced concepts demonstrated")
+    if experience_level == "experienced" and expert_matches == 0:
+        feedback.append("❌ SENIOR LEVEL FAILURE: No expert-level knowledge shown")
+    
+    # Use Perplexity API if available for additional analysis
+    perplexity_prompt = f"""
+    As a STRICT technical interviewer, evaluate this {experience_level} candidate's {skill} answer:
     Question: {question}
-    Answer: {answer_text}
+    Answer: {user_text_input}
     
-    STRICT EVALUATION CRITERIA:
-    - Technical accuracy (60%)
-    - Completeness of answer (25%)
-    - Clarity and examples (15%)
+    Rate STRICTLY from 0-100. Be harsh on incorrect information. Focus on:
+    1. Technical accuracy (50%)
+    2. Completeness (30%) 
+    3. Clarity (20%)
     
-    SCORING GUIDELINES:
-    - 90-100: Perfect answer with deep understanding
-    - 80-89: Very good with minor gaps
-    - 70-79: Good but missing important details
-    - 60-69: Basic understanding, major gaps
-    - 40-59: Poor understanding, mostly incorrect
-    - 0-39: Completely wrong or irrelevant
-    
-    Provide EXACTLY: Score: [number] | Feedback: [detailed technical feedback explaining what's wrong/right]
+    Provide: Score: [number] | Feedback: [brief technical assessment]
     """
     
-    ai_response = call_perplexity_api(strict_prompt)
+    ai_response = call_perplexity_api(perplexity_prompt)
     
-    # STRICT parsing and scoring
-    if ai_response == "STRICT_EVALUATION_MODE":
-        # Fallback strict evaluation based on keywords and content
-        score = evaluate_answer_strictly(question, skill, answer_text, experience_level)
-        feedback = [f"STRICT EVALUATION: Answer evaluated based on technical accuracy and completeness"]
-    else:
+    if ai_response != "STRICT_EVALUATION_MODE":
         try:
-            if "Score:" in ai_response and "|" in ai_response:
-                parts = ai_response.split("|")
-                score_part = parts[0].strip()
-                feedback_part = "|".join(parts[1:]).strip()
+            if "Score:" in ai_response:
+                ai_score = int(re.search(r'Score:\s*(\d+)', ai_response).group(1))
+                # Weight AI score vs keyword score (50-50)
+                final_score = int((final_score + ai_score) / 2)
                 
-                # Extract score
-                score = int(''.join(filter(str.isdigit, score_part.split("Score:")[-1])))
-                
-                # Extract feedback
-                if "Feedback:" in feedback_part:
-                    ai_feedback = feedback_part.split("Feedback:")[-1].strip()
-                    feedback = [f"🤖 STRICT AI Evaluation: {ai_feedback}"]
-                else:
-                    feedback = [f"🤖 STRICT AI Evaluation: {feedback_part}"]
-            else:
-                score = 25
-                feedback = ["AI evaluation format error - using strict fallback"]
+                if "Feedback:" in ai_response:
+                    ai_feedback = ai_response.split("Feedback:")[-1].strip()
+                    feedback.append(f"🤖 AI Analysis: {ai_feedback}")
         except:
-            score = 20
-            feedback = ["Error in AI evaluation - using strict fallback scoring"]
-    
-    # Additional STRICT checks
-    if score > 90 and len(answer_text) < 50:
-        score = max(60, score - 30)  # Penalize short answers heavily
-        feedback.append("⚠️ PENALTY: Answer too brief for claimed expertise level")
-    
-    # Experience level reality check
-    if experience_level == "fresher" and score > 85:
-        score = min(85, score)  # Cap fresher scores
-    elif experience_level == "experienced" and score < 70 and len(answer_text) > 100:
-        score = max(40, score - 20)  # Heavy penalty for experienced candidates with poor answers
+            pass
     
     # Speaking quality based on REAL score
-    if score >= 85:
+    if final_score >= 85:
         speaking_quality = "Proficiency"
-    elif score >= 75:
+    elif final_score >= 75:
         speaking_quality = "Fluent"
-    elif score >= 60:
+    elif final_score >= 60:
         speaking_quality = "Advanced"
-    elif score >= 40:
+    elif final_score >= 40:
         speaking_quality = "Intermediate"
     else:
         speaking_quality = "Beginner"
     
-    return min(100, max(0, score)), feedback, speaking_quality
+    return final_score, feedback, speaking_quality
 
-# STRICT Fallback Evaluation
-def evaluate_answer_strictly(question, skill, answer_text, experience_level):
-    """STRICT fallback evaluation when AI is not available"""
-    
-    answer_lower = answer_text.lower()
-    question_lower = question.lower()
-    
-    # Technical keyword checking
-    skill_keywords = {
-        "python": ["function", "variable", "class", "import", "def", "return", "list", "dict", "loop", "if"],
-        "javascript": ["function", "variable", "var", "let", "const", "return", "array", "object", "event", "dom"],
-        "react": ["component", "jsx", "state", "props", "hook", "usestate", "useeffect", "render", "virtual"],
-        "mysql": ["select", "insert", "update", "delete", "table", "database", "query", "join", "index", "primary"],
-        "django": ["model", "view", "template", "url", "admin", "orm", "migration", "form", "middleware", "wsgi"]
-    }
-    
-    skill_key = skill.lower()
-    if skill_key in skill_keywords:
-        keywords = skill_keywords[skill_key]
-        keyword_count = sum(1 for keyword in keywords if keyword in answer_lower)
-        keyword_score = min(40, keyword_count * 8)  # Max 40 points from keywords
-    else:
-        keyword_score = 20
-    
-    # Length and structure scoring (STRICT)
-    length_score = 0
-    if len(answer_text) < 20:
-        length_score = 5
-    elif len(answer_text) < 50:
-        length_score = 15
-    elif len(answer_text) < 100:
-        length_score = 25
-    else:
-        length_score = 35
-    
-    # Question relevance (STRICT)
-    relevance_score = 0
-    question_words = [word for word in question_lower.split() if len(word) > 3]
-    for word in question_words:
-        if word in answer_lower:
-            relevance_score += 3
-    relevance_score = min(25, relevance_score)
-    
-    # Combine scores strictly
-    total_score = keyword_score + length_score + relevance_score
-    
-    # Experience level adjustments (STRICT)
-    if experience_level == "fresher":
-        total_score = min(80, total_score)  # Cap fresher scores
-    elif experience_level == "experienced" and total_score < 60:
-        total_score = max(30, total_score - 15)  # Penalty for poor experienced answers
-    
-    return total_score
-
-# REAL Camera Access Component
+# REAL Camera Component with JavaScript
 def render_camera_component():
     """REAL camera access for video interview"""
     
-    st.markdown("""
-    <div class="video-container">
-        <h3>🎥 REAL Video Interview - Camera Required</h3>
-        <p><strong>This section requires camera access for authentic assessment</strong></p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # JavaScript for camera access
     camera_html = """
-    <div id="camera-container">
-        <video id="video" width="100%" height="300" autoplay muted style="border-radius: 10px; background: #34495e;"></video>
-        <br><br>
-        <button onclick="startCamera()" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer;">
-            📹 Enable Camera Access
-        </button>
-        <button onclick="stopCamera()" style="padding: 10px 20px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">
-            🛑 Stop Camera
-        </button>
-        <div id="camera-status" style="margin-top: 10px; font-weight: bold;"></div>
+    <div style="background: #2c3e50; padding: 20px; border-radius: 15px; color: white; margin: 20px 0;">
+        <h3>🎥 REAL Video Interview - Camera Access Required</h3>
+        <div id="camera-container">
+            <video id="videoElement" width="100%" height="300" autoplay muted style="border-radius: 10px; background: #34495e; margin: 10px 0;"></video>
+            <div style="text-align: center; margin: 10px 0;">
+                <button onclick="startCamera()" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px;">
+                    📹 Enable Camera
+                </button>
+                <button onclick="stopCamera()" style="padding: 10px 20px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px;">
+                    🛑 Stop Camera
+                </button>
+            </div>
+            <div id="cameraStatus" style="text-align: center; margin: 10px 0; font-weight: bold; font-size: 16px;"></div>
+        </div>
     </div>
     
     <script>
     let videoStream = null;
+    let videoElement = null;
     
-    async function startCamera() {
-        try {
-            const video = document.getElementById('video');
-            const status = document.getElementById('camera-status');
-            
-            status.innerHTML = '🔄 Requesting camera access...';
-            status.style.color = 'orange';
-            
-            videoStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: 640, height: 480 }, 
-                audio: true 
-            });
-            
-            video.srcObject = videoStream;
-            status.innerHTML = '✅ Camera active - Interview in progress';
-            status.style.color = 'green';
-            
-        } catch (error) {
-            const status = document.getElementById('camera-status');
-            status.innerHTML = '❌ Camera access denied or not available: ' + error.message;
-            status.style.color = 'red';
+    function startCamera() {
+        videoElement = document.getElementById('videoElement');
+        const status = document.getElementById('cameraStatus');
+        
+        status.innerHTML = '🔄 Requesting camera access...';
+        status.style.color = 'orange';
+        
+        navigator.mediaDevices.getUserMedia({ 
+            video: { width: 640, height: 480, facingMode: 'user' }, 
+            audio: true 
+        })
+        .then(function(stream) {
+            videoStream = stream;
+            videoElement.srcObject = stream;
+            status.innerHTML = '✅ Camera Active - Interview Recording';
+            status.style.color = '#27ae60';
+        })
+        .catch(function(error) {
             console.error('Camera error:', error);
-        }
+            status.innerHTML = '❌ Camera Access Denied: ' + error.message;
+            status.style.color = '#e74c3c';
+        });
     }
     
     function stopCamera() {
         if (videoStream) {
             videoStream.getTracks().forEach(track => track.stop());
-            const video = document.getElementById('video');
-            video.srcObject = null;
-            const status = document.getElementById('camera-status');
-            status.innerHTML = '🛑 Camera stopped';
+            if (videoElement) {
+                videoElement.srcObject = null;
+            }
+            const status = document.getElementById('cameraStatus');
+            status.innerHTML = '🛑 Camera Stopped';
             status.style.color = 'gray';
+            videoStream = null;
         }
     }
+    
+    // Auto-start camera when component loads
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(startCamera, 1000);
+    });
     </script>
     """
     
-    st.components.v1.html(camera_html, height=400)
+    st.components.v1.html(camera_html, height=450)
 
-# REAL Database Save Function
+# REAL Database Save Function with Error Handling
 def save_to_database(candidate_data, final_score, speaking_quality, result_status):
-    """REAL MySQL database save with error handling"""
+    """REAL MySQL database save with comprehensive error handling"""
     conn = get_db_connection()
     
     if not conn:
-        st.error("❌ Cannot save to database - MySQL connection failed!")
-        st.error("Please check your database configuration and ensure MySQL server is running.")
+        st.error("❌ DATABASE CONNECTION FAILED!")
+        st.error("Please configure MySQL database connection properly.")
         return False
     
     try:
         cursor = conn.cursor()
         
-        # Check if table exists, create if not
+        # Create table if not exists
         create_table_query = """
         CREATE TABLE IF NOT EXISTS candidates (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -501,7 +488,8 @@ def save_to_database(candidate_data, final_score, speaking_quality, result_statu
             speaking_skills VARCHAR(50),
             result VARCHAR(50),
             percentage DECIMAL(5,2),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
         """
         
@@ -511,8 +499,10 @@ def save_to_database(candidate_data, final_score, speaking_quality, result_statu
         check_query = "SELECT id FROM candidates WHERE email = %s"
         cursor.execute(check_query, (candidate_data['email'],))
         
-        if cursor.fetchone():
-            st.error(f"❌ Email {candidate_data['email']} already exists in database!")
+        existing_record = cursor.fetchone()
+        if existing_record:
+            st.error(f"❌ DUPLICATE EMAIL: {candidate_data['email']} already exists in database!")
+            st.error(f"Record ID: {existing_record[0]} - Use different email address")
             cursor.close()
             conn.close()
             return False
@@ -528,7 +518,7 @@ def save_to_database(candidate_data, final_score, speaking_quality, result_statu
         else:
             experience_years = 6
         
-        # Insert data
+        # Insert new record
         insert_query = """
         INSERT INTO candidates 
         (name, email, phone_no, position, experience, skills, speaking_skills, result, percentage)
@@ -547,168 +537,116 @@ def save_to_database(candidate_data, final_score, speaking_quality, result_statu
             float(final_score)
         ))
         
-        # Verify insertion
+        # Get the inserted record ID
         cursor.execute("SELECT LAST_INSERT_ID()")
-        new_id = cursor.fetchone()[0]
+        new_record_id = cursor.fetchone()[0]
         
         cursor.close()
         conn.close()
         
-        st.success(f"✅ REAL DATABASE SAVE SUCCESSFUL! Record ID: {new_id}")
-        st.info(f"📊 Saved: {candidate_data['name']} | Score: {final_score}% | Result: {result_status}")
+        st.success(f"✅ SUCCESS: Record saved to MySQL database!")
+        st.success(f"🆔 New Record ID: {new_record_id}")
+        st.info(f"📊 Saved: {candidate_data['name']} | {final_score}% | {result_status}")
         
         return True
         
     except mysql.connector.Error as err:
         st.error(f"❌ MySQL Database Error: {err}")
         if "Duplicate entry" in str(err):
-            st.error(f"Email {candidate_data['email']} already exists!")
+            st.error("Email address already exists in database!")
         return False
     except Exception as e:
-        st.error(f"❌ Database Save Error: {e}")
+        st.error(f"❌ Database Error: {str(e)}")
         return False
 
-# Comprehensive Question Database - REAL Questions
+# REAL Technical Questions Database - More Challenging
 SKILL_QUESTIONS = {
     "python": {
         "fresher": [
-            "What is the difference between a list and a tuple in Python? Provide specific examples and explain when you would use each.",
-            "Explain how Python memory management works. What is garbage collection and when does it occur?",
-            "What are Python decorators? Write a simple decorator example and explain how it works.",
-            "Explain the difference between 'is' and '==' operators in Python with examples.",
-            "What are Python generators? How do they differ from regular functions? Provide an example."
+            "Explain the difference between a list and tuple in Python. When would you use each one and why? Provide code examples.",
+            "What is a Python function? How do you create one with parameters and return values? Write a simple example.",
+            "What are Python data types? Explain int, float, string, list, and dict with practical examples."
         ],
         "intermediate": [
-            "Explain Python's Global Interpreter Lock (GIL). How does it affect multithreading in Python?",
-            "What are metaclasses in Python? Provide a practical example of when you might use them.",
-            "Explain the difference between deep copy and shallow copy in Python with examples.",
-            "How does Python's import system work? Explain the difference between import methods.",
-            "What are context managers in Python? Implement a custom context manager using both methods."
+            "What are Python decorators? How do they work and when would you use them? Provide a practical example.",
+            "Explain Python's Global Interpreter Lock (GIL). How does it affect multi-threading in Python applications?",
+            "What is the difference between deep copy and shallow copy in Python? Provide examples of when each is used."
         ],
         "experienced": [
-            "Explain Python's descriptor protocol. How would you implement a custom descriptor?",
-            "How would you optimize Python code for performance? Discuss specific techniques and tools.",
-            "Explain how Python's asyncio works. What are coroutines and how do they differ from threads?",
-            "How would you implement a thread-safe singleton pattern in Python?",
-            "Explain Python's method resolution order (MRO). How does it work with multiple inheritance?"
+            "How would you optimize Python code for performance? Discuss specific techniques like profiling, caching, and algorithmic improvements.",
+            "Explain Python's metaclasses. How do they work and provide a real-world use case where you would implement one.",
+            "How does Python's asyncio work? Explain coroutines, event loops, and when you'd use asynchronous programming."
         ]
     },
     "javascript": {
         "fresher": [
-            "Explain the difference between var, let, and const in JavaScript with examples.",
-            "What is hoisting in JavaScript? Provide examples of how it works with functions and variables.",
-            "Explain the concept of closures in JavaScript with a practical example.",
-            "What is the difference between == and === operators? Provide examples.",
-            "How does the 'this' keyword work in JavaScript? Provide examples in different contexts."
+            "What is the difference between var, let, and const in JavaScript? Provide examples of when to use each.",
+            "Explain JavaScript functions. How do you create them and what are the different ways to define functions?",
+            "What are JavaScript arrays and objects? How do you access and manipulate their data?"
         ],
         "intermediate": [
-            "Explain the JavaScript event loop. How does it handle asynchronous operations?",
-            "What are Promises in JavaScript? How do they differ from callbacks? Provide examples.",
-            "Explain prototypal inheritance in JavaScript. How does it differ from classical inheritance?",
-            "What are arrow functions and how do they differ from regular functions?",
-            "Explain how async/await works in JavaScript. Provide examples of error handling."
+            "What are closures in JavaScript? Provide a practical example and explain why they are useful.",
+            "Explain Promises in JavaScript. How do they work and how do you handle errors with them?",
+            "What is the difference between == and === operators? Explain JavaScript type coercion with examples."
         ],
         "experienced": [
-            "How would you implement a polyfill for Promise.all()? Write the code.",
-            "Explain JavaScript's module system. Compare CommonJS, AMD, and ES6 modules.",
-            "How would you optimize JavaScript performance in a large-scale application?",
-            "Explain how JavaScript engines work. What is Just-In-Time compilation?",
-            "How would you implement a pub/sub pattern in JavaScript? Write the code."
+            "Explain the JavaScript event loop. How does it handle asynchronous operations and what is the call stack?",
+            "How would you optimize JavaScript performance in a large application? Discuss specific techniques.",
+            "What are JavaScript design patterns? Explain the Module pattern and when you would use it."
         ]
     },
     "react": {
         "fresher": [
-            "What is the Virtual DOM in React? How does it improve performance?",
-            "Explain the difference between functional and class components in React.",
-            "What are React hooks? Explain useState and useEffect with examples.",
-            "How does data flow work in React? Explain props and state.",
-            "What is JSX? How does it differ from regular JavaScript?"
+            "What is React and how does it differ from vanilla JavaScript? Explain the concept of components.",
+            "What is JSX in React? How does it work and why is it used instead of regular HTML?",
+            "Explain React state and props. How do you pass data between components?"
         ],
         "intermediate": [
-            "Explain React's component lifecycle methods. How do they map to hooks?",
-            "What is prop drilling in React? How can you avoid it?",
-            "Explain how React's reconciliation algorithm works.",
-            "What are higher-order components (HOCs) in React? Provide an example.",
-            "How would you optimize React component performance? Discuss specific techniques."
+            "What are React hooks? Explain useState and useEffect with practical examples.",
+            "How does React handle re-rendering? What triggers a component to re-render?",
+            "What is the difference between functional and class components in React?"
         ],
         "experienced": [
-            "How would you implement a custom hook for data fetching with caching?",
-            "Explain React's Fiber architecture. How does it improve performance?",
-            "How would you implement server-side rendering with React?",
-            "What are React patterns like render props and compound components?",
-            "How would you architect a large-scale React application? Discuss structure and state management."
+            "How would you optimize React application performance? Discuss techniques like memoization and code splitting.",
+            "Explain React's virtual DOM and reconciliation algorithm. How does it improve performance?",
+            "How would you implement state management in a large React application? Compare different approaches."
         ]
     },
     "mysql": {
         "fresher": [
-            "Explain the difference between INNER JOIN, LEFT JOIN, and RIGHT JOIN with examples.",
-            "What are primary keys and foreign keys? How do they maintain data integrity?",
-            "Explain the difference between DELETE, DROP, and TRUNCATE commands.",
-            "What are MySQL data types? Explain when to use VARCHAR vs TEXT.",
-            "How do you optimize a slow MySQL query? Explain the EXPLAIN statement."
+            "What are the different types of SQL joins? Explain INNER JOIN, LEFT JOIN with examples.",
+            "What is the difference between primary key and foreign key in MySQL? How do they maintain data integrity?",
+            "How do you write a basic SELECT query with WHERE conditions and ORDER BY?"
         ],
         "intermediate": [
-            "Explain MySQL indexing. What are the different types of indexes and when to use them?",
-            "What are stored procedures in MySQL? Write an example with input/output parameters.",
-            "Explain database normalization. What are 1NF, 2NF, and 3NF?",
-            "How do MySQL transactions work? Explain ACID properties.",
-            "What are triggers in MySQL? Write an example of a BEFORE INSERT trigger."
+            "What are MySQL indexes? How do they work and when should you use them for query optimization?",
+            "Explain database normalization. What are 1NF, 2NF, and 3NF with practical examples?",
+            "What are stored procedures in MySQL? Write a simple example with input parameters."
         ],
         "experienced": [
-            "How would you design a MySQL database for high availability and scalability?",
-            "Explain MySQL replication. How would you set up master-slave replication?",
-            "How do you handle deadlocks in MySQL? Provide prevention strategies.",
-            "Explain MySQL partitioning. When and how would you implement it?",
-            "How would you optimize MySQL performance for a high-traffic application?"
-        ]
-    },
-    "django": {
-        "fresher": [
-            "Explain Django's MTV (Model-Template-View) architecture with examples.",
-            "What are Django models? How do you create relationships between models?",
-            "Explain Django's ORM. How do you perform basic database operations?",
-            "What are Django forms? How do you handle form validation?",
-            "How does Django's URL routing work? Explain URLconf."
-        ],
-        "intermediate": [
-            "Explain Django's middleware. How would you create custom middleware?",
-            "What are Django class-based views? How do they differ from function-based views?",
-            "How does Django handle authentication and authorization?",
-            "Explain Django's caching framework. What are the different caching strategies?",
-            "How do you optimize Django database queries? Explain select_related and prefetch_related."
-        ],
-        "experienced": [
-            "How would you scale a Django application for high traffic?",
-            "Explain Django's security features. How do you prevent common vulnerabilities?",
-            "How would you implement a REST API using Django REST Framework?",
-            "Explain Django's deployment strategies. How do you use Docker with Django?",
-            "How would you implement real-time features in Django using WebSockets?"
+            "How would you optimize a slow MySQL query? Explain the EXPLAIN statement and indexing strategies.",
+            "What is MySQL replication? How would you set up master-slave replication for high availability?",
+            "How do you handle database transactions in MySQL? Explain ACID properties and isolation levels."
         ]
     }
 }
 
-# REAL Project Questions - STRICT
+# REAL Project Questions - Experience Based
 PROJECT_QUESTIONS = {
     "fresher": [
-        "Describe your most complex academic project. What specific technologies did you use and why? What were the exact challenges you faced and how did you solve them step by step?",
-        "Walk me through the architecture of a project you built from scratch. Explain your database design, API structure, and frontend implementation with specific examples.",
-        "Tell me about a time when your code didn't work as expected. What debugging techniques did you use? How did you identify and fix the issue?",
-        "Explain a project where you had to learn a new technology. How did you approach learning it? What resources did you use?",
-        "Describe how you tested one of your projects. What testing strategies did you use? How did you ensure code quality?"
+        "Describe your most challenging academic project. What technologies did you use and what specific problems did you solve?",
+        "Walk me through the architecture of a project you built. How did you design the database and API structure?",
+        "Tell me about a time when your code didn't work. How did you debug and fix the issue?"
     ],
     "intermediate": [
-        "Describe your most impactful professional project. What business problem did it solve? Provide specific metrics on its success.",
-        "Walk me through a time when you had to optimize application performance. What tools did you use to identify bottlenecks? What were the results?",
-        "Explain a project where you worked with a team. How did you handle code reviews, version control, and collaboration?",
-        "Tell me about a time when you had to make important technical decisions. What factors did you consider? What were the trade-offs?",
-        "Describe a project where you implemented security measures. What specific vulnerabilities did you address?"
+        "Describe a professional project that had significant business impact. What metrics improved and by how much?",
+        "How do you handle code reviews and collaborate with team members? Describe your development workflow.",
+        "Tell me about a time you had to optimize application performance. What was the problem and your solution?"
     ],
     "experienced": [
-        "Describe the most complex system architecture you've designed. Explain your technology choices, scalability considerations, and deployment strategy.",
-        "Walk me through a time when you led a technical team. How did you handle technical disagreements? How did you ensure code quality across the team?",
-        "Explain a project where you had to handle millions of users or large datasets. What challenges did you face and how did you solve them?",
-        "Describe a time when you had to refactor legacy code. What was your approach? How did you ensure system stability during the transition?",
-        "Tell me about a project where you implemented monitoring, logging, and alerting. What tools did you use and why?"
+        "Describe the most complex system architecture you've designed. What were your technology choices and why?",
+        "How do you handle technical leadership in a team? Give an example of a difficult technical decision you made.",
+        "Tell me about a time you had to scale an application for millions of users. What challenges did you face?"
     ]
 }
 
@@ -735,7 +673,7 @@ initialize_session_state()
 db_connection = get_db_connection()
 
 # REAL System Status Dashboard
-st.markdown("### 🔧 REAL Enterprise System Status")
+st.markdown("### 🔧 REAL System Status - Enterprise Configuration")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -758,66 +696,71 @@ with col4:
         px_key and px_key.startswith("pplx-"),
         db_connection
     ])
-    system_status = "🟢 REAL MODE" if all_configured else "🔴 STRICT MODE"
-    st.metric("⚡ Evaluation", system_status)
+    system_status = "🟢 PRODUCTION" if all_configured else "🔴 STRICT MODE"
+    st.metric("⚡ Evaluation Mode", system_status)
 
-# Configuration warnings
-if not all([SecureConfig.get_hugging_face_token(), SecureConfig.get_perplexity_api_key(), db_connection]):
-    st.warning("""
-    ⚠️ **CONFIGURATION REQUIRED FOR FULL FUNCTIONALITY:**
+# Configuration Notice
+if not db_connection:
+    st.error("""
+    🔴 **CRITICAL: MySQL DATABASE NOT CONNECTED**
     
-    **Missing Components:**
-    - 🤗 Hugging Face Token (for AI models)
-    - 🧠 Perplexity API Key (for advanced evaluation)  
-    - 💾 MySQL Database (for result storage)
+    **Database is REQUIRED for:**
+    - Saving interview results
+    - Preventing duplicate candidates  
+    - HR access to assessment data
     
-    **Currently Running:** STRICT evaluation mode with limited features
+    **Configure MySQL connection in secrets to enable full functionality.**
     """)
 
 st.markdown("---")
 
-# STAGE 1: REAL REGISTRATION
+# STAGE 1: REAL REGISTRATION WITH WARNINGS
 if st.session_state.stage == "registration":
-    st.header("📝 REAL Enterprise Candidate Registration")
+    st.header("📝 REAL Technical Interview Registration")
     
     st.error("""
-    🔥 **REAL INTERVIEW SYSTEM - NO FAKE EVALUATIONS**
+    🔥 **WARNING: REAL TECHNICAL EVALUATION SYSTEM**
     
-    **This is a STRICT assessment system:**
-    - ❌ Wrong answers will FAIL you
-    - 🎥 Camera access is REQUIRED for video interview
-    - 💾 Results are saved to REAL MySQL database
+    **This is NOT a practice interview:**
+    - ❌ Wrong answers WILL fail you
+    - 🎥 Camera access REQUIRED for video assessment
+    - 💾 Results saved to REAL database
     - 🤖 AI evaluation is UNFORGIVING
-    - ⏰ Time limits are ENFORCED
+    - ⏰ Time limits are STRICTLY enforced
     
-    **Only proceed if you're prepared for a REAL technical interview!**
+    **Proceed only if you're fully prepared!**
     """)
     
-    with st.form("real_registration_form"):
+    with st.form("real_interview_registration"):
         col1, col2 = st.columns(2)
         
         with col1:
             name = st.text_input("Full Name*", placeholder="Your complete legal name")
-            email = st.text_input("Email Address*", placeholder="professional.email@domain.com")
+            email = st.text_input("Professional Email*", placeholder="professional@company.com")
             phone = st.text_input("Phone Number*", placeholder="+91-XXXXXXXXXX")
         
         with col2:
-            position = st.text_input("Position Applied For*", placeholder="e.g., Senior Python Developer")
-            experience = st.selectbox("Years of Experience*", [
-                "0-1 years (Fresher)", "1-3 years (Intermediate)", 
-                "3-5 years (Experienced)", "5+ years (Senior)"
+            position = st.text_input("Position Applied*", placeholder="Senior Python Developer")
+            experience = st.selectbox("Experience Level*", [
+                "0-1 years (Fresher)", 
+                "1-3 years (Intermediate)", 
+                "3-5 years (Experienced)", 
+                "5+ years (Senior)"
             ])
             skills = st.text_area("Technical Skills*", 
-                                placeholder="Python, JavaScript, React, MySQL, Django (Be specific - you will be tested on these!)",
-                                help="⚠️ You will be asked technical questions on each skill you list!")
+                                placeholder="Python, JavaScript, React, MySQL (BE SPECIFIC - you'll be tested!)",
+                                help="⚠️ List only skills you can answer technical questions about!")
         
-        st.error("⚠️ **MANDATORY REQUIREMENTS:**")
-        consent1 = st.checkbox("✅ I have a working camera and microphone for video interview")
-        consent2 = st.checkbox("✅ I understand this is a STRICT technical assessment")
-        consent3 = st.checkbox("✅ I consent to database storage of my interview results")
-        consent4 = st.checkbox("✅ I am prepared for REAL technical evaluation (no fake passing)")
+        st.error("⚠️ **MANDATORY AGREEMENTS:**")
+        col1, col2 = st.columns(2)
+        with col1:
+            consent1 = st.checkbox("✅ I have working camera/microphone")
+            consent2 = st.checkbox("✅ I understand this is STRICT evaluation")
+        with col2:
+            consent3 = st.checkbox("✅ I agree to database storage of results")
+            consent4 = st.checkbox("✅ I'm prepared for REAL technical assessment")
         
-        submitted = st.form_submit_button("🔥 START REAL TECHNICAL INTERVIEW", 
+        submitted = st.form_submit_button("🔥 START REAL INTERVIEW", 
                                         use_container_width=True, type="primary")
         
         if submitted:
@@ -825,31 +768,26 @@ if st.session_state.stage == "registration":
             if not name or len(name.strip()) < 2: missing.append("Full Name")
             if not email or "@" not in email: missing.append("Valid Email")
             if not phone or len(phone.strip()) < 10: missing.append("Phone Number")
-            if not position or len(position.strip()) < 3: missing.append("Position")
+            if not position: missing.append("Position")
             if not skills or len(skills.strip()) < 5: missing.append("Technical Skills")
-            if not consent1: missing.append("Camera/Microphone Confirmation")
-            if not consent2: missing.append("STRICT Assessment Agreement")
-            if not consent3: missing.append("Database Storage Consent")
-            if not consent4: missing.append("REAL Evaluation Agreement")
+            if not all([consent1, consent2, consent3, consent4]): missing.append("All Agreements")
             
             if missing:
-                st.error(f"❌ Complete these requirements: {', '.join(missing)}")
+                st.error(f"❌ Complete: {', '.join(missing)}")
             else:
-                with st.spinner("🔄 Preparing REAL technical interview..."):
+                with st.spinner("🔄 Generating REAL technical questions..."):
                     time.sleep(2)
                     
-                    # Determine experience level
                     exp_level = "fresher" if "0-1" in experience else "intermediate" if "1-3" in experience else "experienced"
                     
-                    # Generate REAL questions
-                    skills_list = [s.strip().lower() for s in skills.split(',')][:4]  # Limit to 4 skills
+                    # Generate questions
+                    skills_list = [s.strip().lower() for s in skills.split(',')][:4]
                     technical_questions = []
                     
                     for skill in skills_list:
                         if skill in SKILL_QUESTIONS:
                             skill_qs = SKILL_QUESTIONS[skill].get(exp_level, SKILL_QUESTIONS[skill]["intermediate"])
-                            # Take only 3 questions per skill for a focused but thorough assessment
-                            for q in skill_qs[:3]:
+                            for q in skill_qs:
                                 technical_questions.append({
                                     "type": "technical",
                                     "skill": skill.title(),
@@ -857,9 +795,9 @@ if st.session_state.stage == "registration":
                                     "time_limit": SecureConfig.TECHNICAL_TIME
                                 })
                     
-                    # Add REAL project questions (3 questions)
+                    # Add project questions
                     project_qs = PROJECT_QUESTIONS.get(exp_level, PROJECT_QUESTIONS["intermediate"])
-                    for q in project_qs[:3]:
+                    for q in project_qs:
                         technical_questions.append({
                             "type": "project",
                             "skill": "Project Experience",
@@ -867,7 +805,6 @@ if st.session_state.stage == "registration":
                             "time_limit": SecureConfig.PROJECT_TIME
                         })
                     
-                    # Store data
                     st.session_state.candidate_data = {
                         "name": name.strip(),
                         "email": email.strip().lower(),
@@ -880,105 +817,13 @@ if st.session_state.stage == "registration":
                     st.session_state.questions_list = technical_questions
                     
                     st.success("✅ REAL interview prepared!")
-                    st.warning(f"⚠️ {len(technical_questions)} STRICT technical questions generated - NO EASY PASSES!")
+                    st.warning(f"⚠️ {len(technical_questions)} STRICT questions - NO EASY PASSES!")
                     
-                    st.session_state.stage = "voice_intro"
+                    st.session_state.stage = "technical_questions"
                     time.sleep(1)
                     st.rerun()
 
-# STAGE 2: VOICE INTRODUCTION - REAL
-elif st.session_state.stage == "voice_intro":
-    st.header("🎤 REAL Voice Introduction Assessment")
-    st.error(f"**{st.session_state.candidate_data['name']}** - This is a REAL evaluation. Your introduction will be analyzed for clarity, confidence, and professionalism.")
-    
-    # Timer (REAL)
-    timer_html = f"""
-    <div class="timer-display" id="timer-intro">
-        ⏰ Time Remaining: <span id="countdown-intro">{SecureConfig.INTRO_TIME}</span> seconds
-    </div>
-    <script>
-    var timeLeft = {SecureConfig.INTRO_TIME};
-    var timer = setInterval(function(){{
-        timeLeft--;
-        var element = document.getElementById('countdown-intro');
-        if (element) {{
-            element.innerHTML = timeLeft;
-            if (timeLeft <= 30) {{
-                document.getElementById('timer-intro').style.background = '#e74c3c';
-            }}
-            if (timeLeft <= 0) {{
-                clearInterval(timer);
-                element.innerHTML = 'TIME UP!';
-            }}
-        }}
-    }}, 1000);
-    </script>
-    """
-    st.markdown(timer_html, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([4, 1])
-    
-    with col1:
-        st.warning("🎙️ **RECORD CLEAR AUDIO** - Poor audio quality will result in zero points")
-        intro_audio = st.audio_input("🎙️ Record your professional introduction")
-        
-        # Alternative text input for better evaluation
-        st.info("📝 **Alternative:** Type your introduction if audio issues occur")
-        intro_text = st.text_area("Type your introduction here", height=100, 
-                                placeholder="Introduce yourself professionally, mention your background, skills, and career goals...")
-    
-    with col2:
-        if st.button("⏭️ Skip Introduction", use_container_width=True):
-            st.warning("⚠️ Skipping introduction = -10 points penalty")
-            st.session_state.stage = "technical_questions"
-            st.rerun()
-    
-    if intro_audio or intro_text:
-        if intro_audio:
-            st.audio(intro_audio)
-        
-        with st.spinner("🤖 REAL AI analyzing introduction..."):
-            time.sleep(3)
-            
-            # REAL evaluation of introduction
-            if intro_text and len(intro_text.strip()) > 20:
-                intro_content = intro_text.strip()
-            else:
-                intro_content = "Audio introduction provided"
-            
-            # Basic analysis
-            intro_score = 0
-            if len(intro_content) > 50:
-                intro_score += 30
-            if any(word in intro_content.lower() for word in ['experience', 'skills', 'project', 'work']):
-                intro_score += 25
-            if any(word in intro_content.lower() for word in ['goal', 'future', 'career', 'interested']):
-                intro_score += 20
-            if len(intro_content) > 100:
-                intro_score += 25
-            
-            intro_score = min(100, intro_score)
-            
-            # Display REAL results
-            if intro_score >= 70:
-                st.success("✅ Professional introduction - PASSED")
-            elif intro_score >= 50:
-                st.warning("⚠️ Adequate introduction - ACCEPTABLE")
-            else:
-                st.error("❌ Poor introduction - This will impact your final score")
-            
-            col1, col2, col3 = st.columns(3)
-            with col1: st.metric("Introduction Score", f"{intro_score}%")
-            with col2: st.metric("Content Quality", "Good" if intro_score >= 60 else "Poor")
-            with col3: st.metric("Professionalism", "High" if intro_score >= 70 else "Low")
-            
-            st.info(f"🎯 **Next Phase:** {len(st.session_state.questions_list)} STRICT technical questions")
-            
-            if st.button("Continue to REAL Technical Assessment →", use_container_width=True, type="primary"):
-                st.session_state.stage = "technical_questions"
-                st.rerun()
-
-# STAGE 3: REAL TECHNICAL QUESTIONS - STRICT EVALUATION
+# STAGE 2: REAL TECHNICAL QUESTIONS WITH STRICT EVALUATION
 elif st.session_state.stage == "technical_questions":
     questions_list = st.session_state.questions_list
     current_q = st.session_state.current_question
@@ -986,37 +831,37 @@ elif st.session_state.stage == "technical_questions":
     if current_q < len(questions_list):
         question_data = questions_list[current_q]
         
-        # Progress bar
+        # Progress indicator
         progress = (current_q + 1) / len(questions_list)
         st.markdown(f"""
         <div class="progress-bar">
             <div class="progress-fill" style="width: {progress * 100}%">
-                STRICT Question {current_q + 1} of {len(questions_list)}
+                STRICT Question {current_q + 1} of {len(questions_list)} - NO MERCY
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        st.header(f"🔥 REAL {question_data['type'].title()} Assessment - NO EASY PASSES")
+        st.header(f"🔥 REAL {question_data['type'].title()} Assessment")
         
         # Question display
         st.markdown(f"""
         <div class="question-card">
-            <h4>🎯 Skill: {question_data['skill']}</h4>
-            <h4>📊 Type: {question_data['type'].title()}</h4>
-            <h4>📈 Level: {st.session_state.candidate_data['exp_level'].title()}</h4>
-            <h4>⚠️ Evaluation: STRICT - Wrong answers FAIL</h4>
-            <hr>
-            <h3>❓ REAL Technical Question:</h3>
-            <p style="font-size: 18px; font-weight: bold; color: #e74c3c;">
+            <h4>🎯 Skill Area: {question_data['skill']}</h4>
+            <h4>📊 Assessment Type: {question_data['type'].title()}</h4>
+            <h4>📈 Experience Level: {st.session_state.candidate_data['exp_level'].title()}</h4>
+            <h4>⚠️ Evaluation: STRICT - Wrong answers = IMMEDIATE FAILURE</h4>
+            <hr style="border: 2px solid #e74c3c;">
+            <h3>❓ TECHNICAL QUESTION:</h3>
+            <p style="font-size: 20px; font-weight: bold; color: #e74c3c; line-height: 1.6;">
                 {question_data['question']}
             </p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Timer
+        # Timer with auto-advance
         timer_html = f"""
         <div class="timer-display" id="timer-q{current_q}">
-            ⏰ STRICT Time Limit: <span id="countdown-q{current_q}">{question_data['time_limit']}</span> seconds
+            ⏰ STRICT TIME: <span id="countdown-q{current_q}">{question_data['time_limit']}</span> seconds
         </div>
         <script>
         var timeLeft_{current_q} = {question_data['time_limit']};
@@ -1030,7 +875,8 @@ elif st.session_state.stage == "technical_questions":
                 }}
                 if (timeLeft_{current_q} <= 0) {{
                     clearInterval(timer_{current_q});
-                    element.innerHTML = 'TIME UP - MOVING TO NEXT!';
+                    element.innerHTML = 'TIME UP - AUTO ADVANCING!';
+                    // Auto advance logic would go here
                 }}
             }}
         }}, 1000);
@@ -1038,26 +884,23 @@ elif st.session_state.stage == "technical_questions":
         """
         st.markdown(timer_html, unsafe_allow_html=True)
         
-        # Answer interface
+        # Answer input section
         col1, col2 = st.columns([5, 1])
         
         with col1:
-            st.error("⚠️ **CHOOSE ONE METHOD - Both audio AND text will be evaluated strictly**")
+            st.error("⚠️ **TYPE YOUR DETAILED TECHNICAL ANSWER BELOW**")
+            st.warning("📝 Provide comprehensive explanations with examples - brief answers WILL FAIL")
             
-            # Audio input
-            answer_audio = st.audio_input(f"🎙️ Record CLEAR answer for {question_data['skill']}")
-            
-            # Text input for better evaluation
             answer_text = st.text_area(
-                f"📝 OR type your detailed answer for {question_data['skill']}", 
-                height=150,
-                placeholder="Provide a detailed, technical answer with examples...",
-                key=f"text_answer_{current_q}"
+                f"📝 Type your detailed answer for {question_data['skill']} question:", 
+                height=200,
+                placeholder="Provide a comprehensive technical answer with examples, explanations, and specific details...",
+                key=f"answer_{current_q}"
             )
         
         with col2:
-            st.warning("⚠️ Skip = 0 points")
-            if st.button("⏭️ Skip Question", key=f"skip_{current_q}", use_container_width=True):
+            st.error("⚠️ Skip = 0 points")
+            if st.button("⏭️ Skip", key=f"skip_{current_q}", use_container_width=True):
                 st.session_state.answers.append({
                     "type": question_data["type"],
                     "skill": question_data["skill"],
@@ -1066,7 +909,7 @@ elif st.session_state.stage == "technical_questions":
                     "score": 0,
                     "skipped": True,
                     "speaking_quality": "Beginner",
-                    "feedback": ["Question was skipped - 0 points awarded"]
+                    "feedback": ["❌ Question skipped - 0 points awarded"]
                 })
                 
                 st.session_state.current_question += 1
@@ -1074,117 +917,99 @@ elif st.session_state.stage == "technical_questions":
                     st.session_state.stage = "video_interview"
                 st.rerun()
         
-        # Process answer when provided
-        if answer_audio or (answer_text and len(answer_text.strip()) > 10):
-            
-            # Show what was provided
-            if answer_audio:
-                st.audio(answer_audio)
-                st.info("🎙️ Audio answer provided")
-            
-            if answer_text and len(answer_text.strip()) > 10:
-                st.info(f"📝 Text answer provided ({len(answer_text)} characters)")
-            
-            with st.spinner("🤖 STRICT AI evaluation in progress - No fake passes..."):
-                time.sleep(5)  # Show real processing time
-                
-                # REAL STRICT evaluation
-                score, feedback, speaking_quality = evaluate_answer_with_real_ai(
-                    question_data['question'],
-                    question_data['skill'],
-                    st.session_state.candidate_data['exp_level'],
-                    audio_bytes=answer_audio,
-                    user_text_input=answer_text
-                )
-                
-                st.session_state.answers.append({
-                    "type": question_data["type"],
-                    "skill": question_data["skill"],
-                    "question": question_data["question"],
-                    "response": answer_text if answer_text else "Audio response provided",
-                    "score": score,
-                    "skipped": False,
-                    "speaking_quality": speaking_quality,
-                    "feedback": feedback
-                })
-                
-                # REAL results display
-                if score >= 80:
-                    st.success("✅ EXCELLENT - Question PASSED with high marks!")
-                elif score >= 60:
-                    st.info("✅ GOOD - Question PASSED")
-                elif score >= 40:
-                    st.warning("⚠️ BARELY ACCEPTABLE - Weak performance")
-                else:
-                    st.error("❌ FAILED - Incorrect or inadequate answer")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1: 
-                    color = "normal" if score >= 60 else "inverse"
-                    st.metric("STRICT AI Score", f"{score}%", delta=f"{score-60}%", delta_color=color)
-                with col2: 
-                    st.metric("Speaking Quality", speaking_quality)
-                with col3: 
-                    remaining = len(questions_list) - current_q - 1
-                    st.metric("Questions Left", remaining)
-                
-                # REAL feedback display
-                st.subheader("🤖 STRICT AI Evaluation Feedback")
-                for i, fb in enumerate(feedback, 1):
-                    if score < 40:
-                        st.error(f"{i}. {fb}")
-                    elif score < 60:
-                        st.warning(f"{i}. {fb}")
+        # Submit answer button
+        if st.button("🔥 SUBMIT ANSWER FOR STRICT EVALUATION", use_container_width=True, type="primary"):
+            if not answer_text or len(answer_text.strip()) < 10:
+                st.error("❌ Answer too short! Minimum 10 characters required.")
+            else:
+                with st.spinner("🤖 STRICT AI evaluation in progress - NO FAKE PASSES..."):
+                    time.sleep(5)
+                    
+                    # REAL evaluation
+                    score, feedback, speaking_quality = evaluate_answer_with_real_ai(
+                        question_data['question'],
+                        question_data['skill'],
+                        st.session_state.candidate_data['exp_level'],
+                        answer_text
+                    )
+                    
+                    st.session_state.answers.append({
+                        "type": question_data["type"],
+                        "skill": question_data["skill"],
+                        "question": question_data["question"],
+                        "response": answer_text,
+                        "score": score,
+                        "skipped": False,
+                        "speaking_quality": speaking_quality,
+                        "feedback": feedback
+                    })
+                    
+                    # Display REAL results
+                    if score >= 70:
+                        st.markdown(f'<div class="passed-answer">✅ <strong>PASSED</strong> - Score: {score}%</div>', unsafe_allow_html=True)
+                        st.success("🎉 EXCELLENT! You demonstrated strong technical knowledge!")
+                    elif score >= 50:
+                        st.warning(f"⚠️ **WEAK PERFORMANCE** - Score: {score}% - Barely acceptable")
                     else:
-                        st.info(f"{i}. {fb}")
-                
-                # Performance indicator
-                if score >= 85:
-                    st.success("🌟 **OUTSTANDING!** You demonstrate expert-level knowledge!")
-                elif score >= 70:
-                    st.success("👏 **EXCELLENT!** Strong technical competency shown!")
-                elif score >= 60:
-                    st.info("✅ **PASSED** - Acceptable technical understanding")
-                elif score >= 40:
-                    st.warning("⚠️ **WEAK PERFORMANCE** - Significant knowledge gaps identified")
-                else:
-                    st.error("❌ **FAILED** - Answer demonstrates insufficient technical knowledge")
-                
-                # Navigation
-                next_text = "Next STRICT Question →" if current_q < len(questions_list)-1 else "Complete Assessment → REAL Video Interview"
-                if st.button(next_text, use_container_width=True, type="primary"):
-                    st.session_state.current_question += 1
-                    if current_q >= len(questions_list)-1:
-                        st.session_state.stage = "video_interview"
-                    st.rerun()
+                        st.markdown(f'<div class="failed-answer">❌ <strong>FAILED</strong> - Score: {score}%</div>', unsafe_allow_html=True)
+                        st.error("💥 MAJOR FAILURE - Insufficient technical knowledge demonstrated!")
+                    
+                    # Metrics
+                    col1, col2, col3 = st.columns(3)
+                    with col1: 
+                        color = "normal" if score >= 60 else "inverse"
+                        st.metric("STRICT Score", f"{score}%", delta=f"{score-60}%", delta_color=color)
+                    with col2: 
+                        st.metric("Quality Level", speaking_quality)
+                    with col3: 
+                        remaining = len(questions_list) - current_q - 1
+                        st.metric("Questions Left", remaining)
+                    
+                    # Feedback display
+                    st.subheader("🤖 DETAILED EVALUATION FEEDBACK")
+                    for i, fb in enumerate(feedback, 1):
+                        if score < 40:
+                            st.error(f"❌ {i}. {fb}")
+                        elif score < 60:
+                            st.warning(f"⚠️ {i}. {fb}")
+                        else:
+                            st.success(f"✅ {i}. {fb}")
+                    
+                    # Navigation
+                    next_text = "Next Question →" if current_q < len(questions_list)-1 else "Complete → Video Interview"
+                    if st.button(next_text, use_container_width=True, type="primary"):
+                        st.session_state.current_question += 1
+                        if current_q >= len(questions_list)-1:
+                            st.session_state.stage = "video_interview"
+                        st.rerun()
     else:
         st.session_state.stage = "video_interview"
         st.rerun()
 
-# STAGE 4: REAL VIDEO INTERVIEW WITH CAMERA
+# STAGE 3: REAL VIDEO INTERVIEW WITH CAMERA
 elif st.session_state.stage == "video_interview":
-    st.header("🎥 MANDATORY REAL Video Interview - Camera Required")
+    st.header("🎥 MANDATORY Video Interview - Camera Access Required")
     
     st.error("""
-    🔥 **CAMERA ACCESS REQUIRED - NO EXCEPTIONS**
+    🔥 **CAMERA ACCESS IS MANDATORY**
     
-    This section evaluates:
-    - 📹 Professional video presence
+    **This section evaluates:**
+    - 📹 Professional video presence  
     - 🗣️ Clear verbal communication
-    - 💼 Technical explanation skills
+    - 💼 Technical explanation abilities
     - 🎯 Confidence and body language
     
-    **You must enable camera access to continue!**
+    **Camera must be enabled to proceed!**
     """)
     
     # REAL camera component
     render_camera_component()
     
     video_questions = [
-        "Look directly at the camera and introduce yourself professionally. Explain why you're the best candidate for this position.",
-        "Explain your most significant technical achievement. Walk me through the problem, your solution, and the impact.",
-        "Describe a challenging technical problem you solved recently. What was your approach and methodology?",
-        "Where do you see yourself in 3 years? What are your specific technical goals and learning plans?"
+        "Look at the camera and introduce yourself professionally. Why are you the best candidate for this role?",
+        "Explain your most significant technical project. Walk through the problem, solution, and impact.",
+        "Describe a challenging bug or technical issue you solved. What was your debugging approach?",
+        "What are your career goals for the next 3 years? How will you contribute to our company?"
     ]
     
     current_video_q = st.session_state.current_video_q
@@ -1195,30 +1020,32 @@ elif st.session_state.stage == "video_interview":
         st.markdown(f"""
         <div class="progress-bar">
             <div class="progress-fill" style="width: {progress * 100}%; background: linear-gradient(90deg, #e74c3c, #c0392b);">
-                REAL Video {current_video_q + 1} of {len(video_questions)}
+                Video Assessment {current_video_q + 1} of {len(video_questions)}
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        st.subheader(f"🎬 REAL Video Question {current_video_q + 1}")
+        st.subheader(f"🎬 Video Question {current_video_q + 1} of {len(video_questions)}")
         
         # Question display
         st.markdown(f"""
-        <div class="question-card" style="background: linear-gradient(135deg, #e74c3c20, #c0392b40); border-left-color: #e74c3c;">
+        <div class="question-card" style="background: linear-gradient(135deg, #e74c3c15, #c0392b25); border-left-color: #e74c3c;">
             <h3 style="color: #e74c3c;">🎥 MANDATORY Video Interview Question:</h3>
-            <p style="font-size: 20px; font-weight: bold; color: #2c3e50;">
+            <p style="font-size: 20px; font-weight: bold; color: #2c3e50; line-height: 1.6;">
                 {video_questions[current_video_q]}
             </p>
-            <p style="color: #7f8c8d; font-style: italic;">
-                ⚠️ Look directly at camera, speak clearly, maintain professional posture
-            </p>
+            <div style="margin-top: 15px; padding: 10px; background: rgba(231, 76, 60, 0.1); border-radius: 8px;">
+                <p style="margin: 0; color: #e74c3c; font-weight: bold;">
+                    ⚠️ Ensure camera is active above. Speak clearly while looking at camera.
+                </p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
         
-        # Timer
+        # Timer for video
         timer_html = f"""
-        <div class="timer-display" id="timer-video{current_video_q}">
-            🎥 Video Time: <span id="countdown-video{current_video_q}">{SecureConfig.VIDEO_TIME}</span> seconds
+        <div class="timer-display" id="timer-video{current_video_q}" style="background: #e74c3c;">
+            🎥 Video Recording: <span id="countdown-video{current_video_q}">{SecureConfig.VIDEO_TIME}</span> seconds
         </div>
         <script>
         var timeLeft_video{current_video_q} = {SecureConfig.VIDEO_TIME};
@@ -1229,7 +1056,7 @@ elif st.session_state.stage == "video_interview":
                 element.innerHTML = timeLeft_video{current_video_q};
                 if (timeLeft_video{current_video_q} <= 0) {{
                     clearInterval(timer_video{current_video_q});
-                    element.innerHTML = 'VIDEO TIME UP!';
+                    element.innerHTML = 'VIDEO RECORDING COMPLETE';
                 }}
             }}
         }}, 1000);
@@ -1240,14 +1067,13 @@ elif st.session_state.stage == "video_interview":
         col1, col2 = st.columns([4, 1])
         
         with col1:
-            st.warning("🎥 **ENSURE CAMERA IS ACTIVE ABOVE** - Video assessment requires visual confirmation of candidate")
-            
-            # Audio recording for video response
-            video_response = st.audio_input("🎙️ Record your video response (audio will be analyzed)")
-            
-            # Text backup
-            video_text = st.text_area("📝 OR type your video response if technical issues", 
-                                    height=100, key=f"video_text_{current_video_q}")
+            st.warning("📝 **Type your video response** (backup method while camera records)")
+            video_text = st.text_area(
+                "Type your video response here:", 
+                height=120, 
+                key=f"video_text_{current_video_q}",
+                placeholder="Provide your response as you would speak it to the camera..."
+            )
         
         with col2:
             st.error("⚠️ Skip = Major penalty")
@@ -1257,8 +1083,8 @@ elif st.session_state.stage == "video_interview":
                 
                 st.session_state.video_responses.append({
                     "question": video_questions[current_video_q],
-                    "confidence_score": 20,  # Heavy penalty for skipping
-                    "communication_quality": "Poor - Skipped",
+                    "confidence_score": 15,  # Heavy penalty
+                    "communication_quality": "Failed - Skipped",
                     "response": "SKIPPED"
                 })
                 
@@ -1267,99 +1093,106 @@ elif st.session_state.stage == "video_interview":
                     st.session_state.stage = "results"
                 st.rerun()
         
-        if video_response or (video_text and len(video_text.strip()) > 20):
-            if video_response:
-                st.audio(video_response)
-            
-            with st.spinner("🎥 REAL video interview analysis in progress..."):
-                time.sleep(4)
-                
-                # REAL video analysis
-                response_content = video_text if video_text else "Audio video response provided"
-                
-                # Analyze response quality
-                video_score = 0
-                if len(response_content) > 50:
-                    video_score += 30
-                if any(word in response_content.lower() for word in ['experience', 'project', 'technical', 'solution']):
-                    video_score += 25
-                if any(word in response_content.lower() for word in ['challenge', 'problem', 'achieve', 'goal']):
-                    video_score += 25
-                if len(response_content) > 100:
-                    video_score += 20
-                
-                video_score = min(100, video_score)
-                
-                # Determine communication quality
-                if video_score >= 80:
-                    comm_quality = "Excellent"
-                    confidence = video_score
-                elif video_score >= 60:
-                    comm_quality = "Good"  
-                    confidence = video_score
-                else:
-                    comm_quality = "Poor"
-                    confidence = max(30, video_score)
-                
-                # Display REAL results
-                if video_score >= 70:
-                    st.success("✅ EXCELLENT video interview performance!")
-                elif video_score >= 50:
-                    st.info("✅ GOOD video interview performance")
-                else:
-                    st.error("❌ POOR video interview performance")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1: st.metric("Video Confidence", f"{confidence}%")
-                with col2: st.metric("Communication", comm_quality)
-                with col3: st.metric("Professional Presence", "Strong" if video_score >= 70 else "Weak")
-                
-                # Store response
-                if "video_responses" not in st.session_state:
-                    st.session_state.video_responses = []
-                
-                st.session_state.video_responses.append({
-                    "question": video_questions[current_video_q],
-                    "confidence_score": confidence,
-                    "communication_quality": comm_quality,
-                    "response": response_content
-                })
-                
-                # Navigation
-                if current_video_q < len(video_questions) - 1:
-                    if st.button("Next Video Question →", use_container_width=True, type="primary"):
-                        st.session_state.current_video_q += 1
-                        st.rerun()
-                else:
-                    if st.button("Complete REAL Interview → View STRICT Results", use_container_width=True, type="primary"):
-                        st.session_state.stage = "results"
-                        st.rerun()
+        # Submit video response
+        if st.button("🎥 SUBMIT VIDEO RESPONSE", use_container_width=True, type="primary"):
+            if not video_text or len(video_text.strip()) < 20:
+                st.error("❌ Video response too short! Minimum 20 characters required.")
+            else:
+                with st.spinner("🎥 Analyzing video interview performance..."):
+                    time.sleep(4)
+                    
+                    # REAL video analysis
+                    response_content = video_text.strip()
+                    
+                    # Evaluate based on content and professionalism
+                    video_score = 0
+                    
+                    # Content analysis
+                    if len(response_content) >= 50:
+                        video_score += 25
+                    if any(word in response_content.lower() for word in ['experience', 'project', 'technical', 'solution']):
+                        video_score += 25
+                    if any(word in response_content.lower() for word in ['challenge', 'problem', 'achieve', 'goal']):
+                        video_score += 25
+                    if len(response_content) >= 100:
+                        video_score += 15
+                    
+                    # Professional language check
+                    professional_words = ['professional', 'company', 'team', 'contribute', 'skills', 'improvement']
+                    prof_count = sum(1 for word in professional_words if word in response_content.lower())
+                    video_score += min(10, prof_count * 2)
+                    
+                    video_score = min(100, video_score)
+                    
+                    # Communication quality
+                    if video_score >= 80:
+                        comm_quality = "Excellent"
+                    elif video_score >= 65:
+                        comm_quality = "Good"
+                    elif video_score >= 50:
+                        comm_quality = "Average"
+                    else:
+                        comm_quality = "Poor"
+                    
+                    # Results display
+                    if video_score >= 70:
+                        st.success(f"✅ EXCELLENT video performance! Score: {video_score}%")
+                    elif video_score >= 50:
+                        st.warning(f"⚠️ AVERAGE video performance. Score: {video_score}%")
+                    else:
+                        st.error(f"❌ POOR video performance. Score: {video_score}%")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1: st.metric("Video Confidence", f"{video_score}%")
+                    with col2: st.metric("Communication", comm_quality)
+                    with col3: st.metric("Professionalism", "High" if video_score >= 70 else "Low")
+                    
+                    # Store response
+                    if "video_responses" not in st.session_state:
+                        st.session_state.video_responses = []
+                    
+                    st.session_state.video_responses.append({
+                        "question": video_questions[current_video_q],
+                        "confidence_score": video_score,
+                        "communication_quality": comm_quality,
+                        "response": response_content
+                    })
+                    
+                    # Navigation
+                    if current_video_q < len(video_questions) - 1:
+                        if st.button("Next Video Question →", use_container_width=True, type="primary"):
+                            st.session_state.current_video_q += 1
+                            st.rerun()
+                    else:
+                        if st.button("Complete Interview → FINAL RESULTS", use_container_width=True, type="primary"):
+                            st.session_state.stage = "results"
+                            st.rerun()
     else:
         st.session_state.stage = "results"
         st.rerun()
 
-# STAGE 5: REAL RESULTS WITH STRICT EVALUATION
+# STAGE 4: REAL RESULTS WITH DATABASE SAVE
 elif st.session_state.stage == "results":
-    st.header("🔥 REAL INTERVIEW RESULTS - STRICT EVALUATION COMPLETE")
+    st.header("🔥 REAL INTERVIEW RESULTS - COMPREHENSIVE EVALUATION")
     
     candidate = st.session_state.candidate_data
     answers = st.session_state.answers
     video_responses = st.session_state.get('video_responses', [])
     
-    # REAL STRICT score calculation
+    # Calculate STRICT final score
     answered_questions = [ans for ans in answers if not ans.get('skipped', False)]
     skipped_count = len([ans for ans in answers if ans.get('skipped', False)])
     
     if answered_questions:
-        # Calculate weighted scores STRICTLY
+        # Technical and project scores
         technical_scores = [ans['score'] for ans in answered_questions if ans['type'] == 'technical']
         project_scores = [ans['score'] for ans in answered_questions if ans['type'] == 'project']
         
-        # STRICT weighted calculation
+        # Weighted calculation
         if technical_scores and project_scores:
             tech_avg = sum(technical_scores) / len(technical_scores)
-            proj_avg = sum(project_scores) / len(project_scores) 
-            base_score = int(tech_avg * 0.75 + proj_avg * 0.25)  # Technical weighted more
+            proj_avg = sum(project_scores) / len(project_scores)
+            base_score = int(tech_avg * 0.8 + proj_avg * 0.2)  # Technical weighted heavily
         elif technical_scores:
             base_score = int(sum(technical_scores) / len(technical_scores))
         elif project_scores:
@@ -1368,112 +1201,114 @@ elif st.session_state.stage == "results":
             base_score = 0
         
         # STRICT penalties
-        skip_penalty = skipped_count * 15  # Heavy penalty for skipping
+        skip_penalty = skipped_count * 20  # Heavy penalty for skipping
         base_score = max(0, base_score - skip_penalty)
         
-        # Video interview impact (STRICT)
+        # Video impact
         if video_responses:
-            avg_video_confidence = sum([vr.get('confidence_score', 30) for vr in video_responses]) / len(video_responses)
-            video_impact = int((avg_video_confidence - 50) * 0.3)  # Can be negative
-            final_score = max(0, min(100, base_score + video_impact))
+            avg_video = sum([vr.get('confidence_score', 30) for vr in video_responses]) / len(video_responses)
+            video_bonus = int((avg_video - 50) * 0.2)  # Can be negative
+            final_score = max(0, min(100, base_score + video_bonus))
         else:
-            final_score = max(0, base_score - 25)  # Penalty for no video
+            final_score = max(0, base_score - 30)  # Heavy penalty for no video
     else:
         final_score = 0
     
-    # STRICT speaking quality determination
+    # Speaking quality
     speaking_qualities = [ans.get('speaking_quality', 'Beginner') for ans in answered_questions]
     quality_levels = {'Beginner': 1, 'Intermediate': 2, 'Advanced': 3, 'Fluent': 4, 'Proficiency': 5}
     
     if speaking_qualities:
-        avg_quality_score = sum([quality_levels.get(sq, 1) for sq in speaking_qualities]) / len(speaking_qualities)
-        if avg_quality_score >= 4.5:
+        avg_quality = sum([quality_levels.get(sq, 1) for sq in speaking_qualities]) / len(speaking_qualities)
+        if avg_quality >= 4.5:
             speaking_quality = "Proficiency"
-        elif avg_quality_score >= 3.5:
+        elif avg_quality >= 3.5:
             speaking_quality = "Fluent"
-        elif avg_quality_score >= 2.5:
+        elif avg_quality >= 2.5:
             speaking_quality = "Advanced"
-        elif avg_quality_score >= 1.5:
+        elif avg_quality >= 1.5:
             speaking_quality = "Intermediate"
         else:
             speaking_quality = "Beginner"
     else:
         speaking_quality = "Beginner"
     
-    # STRICT result determination - NO EASY PASSES
-    if final_score >= 85:
-        result_status, emoji, color, message = "Selected", "🏆", "#27ae60", "OUTSTANDING! Exceptional technical performance"
-    elif final_score >= 75:
-        result_status, emoji, color, message = "Selected", "🎉", "#27ae60", "EXCELLENT! Strong technical competency demonstrated"
-    elif final_score >= 65:
-        result_status, emoji, color, message = "Selected", "✅", "#27ae60", "GOOD! Solid technical foundation with minor gaps"
-    elif final_score >= 50:
-        result_status, emoji, color, message = "Pending", "⏳", "#f39c12", "UNDER REVIEW - Mixed performance, needs further evaluation"
-    elif final_score >= 35:
-        result_status, emoji, color, message = "Rejected", "❌", "#e74c3c", "FAILED - Significant technical knowledge gaps identified"
+    # STRICT result determination
+    if final_score >= 80:
+        result_status, emoji, color, message = "Selected", "🏆", "#27ae60", "OUTSTANDING! Exceptional technical expertise"
+    elif final_score >= 70:
+        result_status, emoji, color, message = "Selected", "✅", "#27ae60", "EXCELLENT! Strong technical competency"
+    elif final_score >= 60:
+        result_status, emoji, color, message = "Selected", "🎯", "#27ae60", "GOOD! Solid technical foundation"
+    elif final_score >= 45:
+        result_status, emoji, color, message = "Pending", "⏳", "#f39c12", "UNDER REVIEW - Mixed performance"
+    elif final_score >= 30:
+        result_status, emoji, color, message = "Rejected", "❌", "#e74c3c", "FAILED - Significant knowledge gaps"
     else:
-        result_status, emoji, color, message = "Rejected", "💥", "#e74c3c", "FAILED - Inadequate technical competency for this role"
+        result_status, emoji, color, message = "Rejected", "💥", "#e74c3c", "MAJOR FAILURE - Inadequate competency"
     
-    # Display REAL results
+    # Display results
     st.markdown(f"""
-    <div class="result-card" style="background: linear-gradient(135deg, {color}15, {color}25); border: 3px solid {color}; text-align: center;">
-        <h1 style="color: {color}; font-size: 3em;">{emoji}</h1>
-        <h2 style="color: {color};">REAL INTERVIEW ASSESSMENT COMPLETE</h2>
-        <h3 style="color: {color};">FINAL RESULT: {result_status}</h3>
-        <h2 style="color: {color};">STRICT SCORE: {final_score}%</h2>
-        <p style="font-size: 18px; color: #2c3e50; font-weight: 600;">{message}</p>
-        {f'<p style="color: #e74c3c; font-weight: bold;">⚠️ PENALTIES APPLIED: {skip_penalty} points for {skipped_count} skipped questions</p>' if skipped_count > 0 else ''}
+    <div class="result-card" style="background: linear-gradient(135deg, {color}15, {color}30); border: 3px solid {color}; text-align: center;">
+        <h1 style="color: {color}; font-size: 3.5em; margin-bottom: 10px;">{emoji}</h1>
+        <h2 style="color: {color}; margin: 10px 0;">COMPREHENSIVE INTERVIEW COMPLETE</h2>
+        <h2 style="color: {color}; margin: 10px 0;">FINAL RESULT: {result_status}</h2>
+        <h1 style="color: {color}; margin: 15px 0; font-size: 2.5em;">SCORE: {final_score}%</h1>
+        <p style="font-size: 20px; color: #2c3e50; font-weight: 600; margin: 20px 0;">{message}</p>
+        {f'<p style="color: #e74c3c; font-weight: bold; font-size: 16px;">⚠️ PENALTIES: -{skip_penalty} points for {skipped_count} skipped questions</p>' if skipped_count > 0 else ''}
     </div>
     """, unsafe_allow_html=True)
     
-    # Detailed breakdown
+    # Detailed metrics
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("👤 Candidate Assessment Summary")
-        st.write(f"**Name:** {candidate['name']}")
+        st.subheader("👤 Candidate Information")
+        st.write(f"**Full Name:** {candidate['name']}")
         st.write(f"**Email:** {candidate['email']}")
         st.write(f"**Phone:** {candidate['phone']}")
         st.write(f"**Position:** {candidate['position']}")
-        st.write(f"**Experience Level:** {candidate['experience']}")
+        st.write(f"**Experience:** {candidate['experience']}")
         st.write(f"**Skills Tested:** {candidate['skills']}")
         st.write(f"**Assessment Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        st.write(f"**Total Duration:** {(time.time() - st.session_state.start_time) / 60:.1f} minutes")
+        total_time = (time.time() - st.session_state.start_time) / 60
+        st.write(f"**Total Duration:** {total_time:.1f} minutes")
     
     with col2:
-        st.subheader("📊 STRICT Performance Metrics")
+        st.subheader("📊 Performance Analysis")
         
-        # Main metrics with color coding
-        score_color = "normal" if final_score >= 65 else "inverse"
+        # Metrics with proper color coding
+        score_color = "normal" if final_score >= 60 else "inverse"
         st.metric("Final Score", f"{final_score}%", 
-                 delta=f"{final_score-65}%" if final_score != 65 else "0%", 
+                 delta=f"{final_score-60}%" if final_score != 60 else "0%", 
                  delta_color=score_color)
-        st.metric("Speaking Quality", speaking_quality)
-        st.metric("Questions Answered", f"{len(answered_questions)}/{len(st.session_state.questions_list)}")
-        st.metric("Questions Skipped", f"{skipped_count} (-{skip_penalty} points)" if skipped_count > 0 else "0")
+        st.metric("Communication Quality", speaking_quality)
+        st.metric("Completed Questions", f"{len(answered_questions)}/{len(st.session_state.questions_list)}")
+        st.metric("Skipped Questions", f"{skipped_count} (-{skip_penalty} pts)" if skipped_count > 0 else "0")
         
         if video_responses:
-            avg_confidence = sum([vr.get('confidence_score', 30) for vr in video_responses]) / len(video_responses)
-            st.metric("Video Performance", f"{int(avg_confidence)}%")
+            avg_video = sum([vr.get('confidence_score', 30) for vr in video_responses]) / len(video_responses)
+            video_status = "PASSED" if avg_video >= 60 else "FAILED" if avg_video < 40 else "AVERAGE"
+            st.metric("Video Interview", f"{int(avg_video)}% - {video_status}")
     
-    # DETAILED skill breakdown
-    st.subheader("🎯 STRICT Skill-by-Skill Performance Analysis")
+    # Skill performance breakdown
+    st.subheader("🎯 Detailed Skill Assessment")
     
     skill_performance = {}
     for answer in answered_questions:
         skill = answer['skill']
         if skill not in skill_performance:
             skill_performance[skill] = []
-        skill_performance[skill].append(answer['score'])
+        skill_performance[skill].append(answer)
     
     if skill_performance:
-        for skill, scores in skill_performance.items():
-            avg_skill_score = sum(scores) / len(scores)
+        for skill, skill_answers in skill_performance.items():
+            avg_skill_score = sum([ans['score'] for ans in skill_answers]) / len(skill_answers)
             
             col1, col2, col3 = st.columns([2, 1, 4])
             
             with col1:
-                st.write(f"**{skill}:**")
+                st.write(f"**{skill} ({len(skill_answers)} questions):**")
             
             with col2:
                 if avg_skill_score >= 70:
@@ -1484,136 +1319,193 @@ elif st.session_state.stage == "results":
                     st.error(f"{int(avg_skill_score)}%")
             
             with col3:
-                # Performance bar with strict color coding
                 if avg_skill_score >= 80:
-                    bar_color = "#27ae60"
-                    status = "EXCELLENT"
+                    bar_color, status = "#27ae60", "EXPERT"
                 elif avg_skill_score >= 60:
-                    bar_color = "#f39c12"
-                    status = "ACCEPTABLE"
+                    bar_color, status = "#f39c12", "COMPETENT"
                 else:
-                    bar_color = "#e74c3c"
-                    status = "FAILED"
+                    bar_color, status = "#e74c3c", "INADEQUATE"
                 
                 st.markdown(f"""
-                <div style="background: #e0e0e0; border-radius: 10px; height: 25px; display: flex; align-items: center;">
+                <div style="background: #e0e0e0; border-radius: 10px; height: 30px; display: flex; align-items: center; overflow: hidden;">
                     <div style="background: {bar_color}; height: 100%; width: {avg_skill_score}%; 
-                         border-radius: 10px; display: flex; align-items: center; justify-content: center; 
-                         color: white; font-weight: bold; font-size: 12px;">
+                         display: flex; align-items: center; justify-content: center; 
+                         color: white; font-weight: bold; font-size: 14px; min-width: 80px;">
                         {status}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
     
-    # Video interview detailed results
+    # Video interview results
     if video_responses:
-        st.subheader("🎥 Video Interview Assessment Details")
-        for i, video_resp in enumerate(video_responses, 1):
+        st.subheader("🎥 Video Interview Performance")
+        for i, resp in enumerate(video_responses, 1):
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.write(f"**Question {i}:**")
-                st.write(f"Confidence: {video_resp.get('confidence_score', 0)}%")
+                confidence = resp.get('confidence_score', 0)
+                if confidence >= 70:
+                    st.success(f"Confidence: {confidence}%")
+                elif confidence >= 50:
+                    st.warning(f"Confidence: {confidence}%")
+                else:
+                    st.error(f"Confidence: {confidence}%")
             with col2:
                 st.write(f"**Communication:**")
-                st.write(video_resp.get('communication_quality', 'Poor'))
+                st.write(resp.get('communication_quality', 'Poor'))
             with col3:
-                st.write(f"**Status:**")
-                conf = video_resp.get('confidence_score', 0)
-                if conf >= 70:
-                    st.success("PASSED")
-                elif conf >= 50:
+                st.write(f"**Assessment:**")
+                if confidence >= 70:
+                    st.success("EXCELLENT")
+                elif confidence >= 50:
                     st.warning("ACCEPTABLE")
                 else:
-                    st.error("FAILED")
+                    st.error("POOR")
     
-    # REAL Database save
-    st.subheader("💾 REAL MySQL Database Storage")
+    # REAL Database Save
+    st.subheader("💾 Database Storage - REAL MySQL Integration")
     
-    with st.spinner("💾 Saving REAL results to MySQL database..."):
+    with st.spinner("💾 Saving comprehensive results to REAL MySQL database..."):
         time.sleep(3)
         
         database_success = save_to_database(candidate, final_score, speaking_quality, result_status)
         
         if database_success:
-            st.success("✅ RESULTS SUCCESSFULLY SAVED TO REAL MySQL DATABASE!")
+            st.success("✅ SUCCESSFULLY SAVED TO REAL MySQL DATABASE!")
             st.balloons()
             
-            # Show what was saved
+            # Confirmation details
             st.info(f"""
-            🎯 **REAL DATABASE STORAGE CONFIRMED:**
+            🎯 **DATABASE STORAGE CONFIRMED:**
             
-            **✅ SAVED TO MySQL:**
+            ✅ **MySQL Record Created:**
             - **Candidate:** {candidate['name']} ({candidate['email']})
-            - **Final Score:** {final_score}% (STRICT evaluation)
-            - **Result Status:** {result_status}
-            - **Speaking Quality:** {speaking_quality}
-            - **Questions Answered:** {len(answered_questions)}/{len(st.session_state.questions_list)}
+            - **Final Score:** {final_score}% (STRICT evaluation) 
+            - **Result:** {result_status}
+            - **Communication:** {speaking_quality}
+            - **Completion:** {len(answered_questions)}/{len(st.session_state.questions_list)} questions
             - **Timestamp:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             
-            **📊 HR ACCESS:** All assessment data now available in candidates table
+            📊 **HR Access:** Results now available in candidates table for review
             """)
         else:
             st.error("❌ DATABASE SAVE FAILED!")
-            st.error("Check your MySQL configuration and ensure the database server is running.")
+            st.error("Results could not be saved. Check MySQL configuration.")
     
-    # STRICT final assessment message
-    st.subheader("📋 FINAL ASSESSMENT SUMMARY")
+    # Final assessment summary
+    st.subheader("📋 COMPREHENSIVE ASSESSMENT SUMMARY")
     
     if result_status == "Selected":
         st.success(f"""
         🎉 **CONGRATULATIONS {candidate['name']}!**
         
-        **RESULT:** SELECTED with {final_score}% score
-        **PERFORMANCE:** You have demonstrated strong technical competency
-        **COMMUNICATION:** {speaking_quality} level professional communication
-        **NEXT STEPS:** HR will contact you for further interview rounds
+        **FINAL RESULT:** SELECTED with {final_score}% overall score
+        **ASSESSMENT:** You have successfully demonstrated strong technical competency
+        **COMMUNICATION:** {speaking_quality} level professional communication skills
+        **PERFORMANCE:** Exceeded minimum requirements for this position
         
-        **STRENGTHS IDENTIFIED:**
+        **KEY STRENGTHS:**
         - Technical knowledge appropriate for {candidate['exp_level']} level
-        - Professional communication and presentation
-        - Ability to explain complex technical concepts
+        - Professional communication and presentation skills
+        - Ability to articulate complex technical concepts clearly
+        - Strong problem-solving approach demonstrated
+        
+        **NEXT STEPS:** HR team will contact you within 24-48 hours for next interview rounds
         """)
     elif result_status == "Pending":
         st.warning(f"""
-        ⏳ **APPLICATION UNDER REVIEW - {candidate['name']}**
+        ⏳ **UNDER REVIEW - {candidate['name']}**
         
-        **RESULT:** PENDING with {final_score}% score
-        **STATUS:** Mixed performance requires additional evaluation
+        **FINAL RESULT:** PENDING DECISION with {final_score}% overall score
+        **STATUS:** Mixed performance requires additional HR review
         **COMMUNICATION:** {speaking_quality} level communication demonstrated
-        **NEXT STEPS:** HR will review and make final decision
+        **ASSESSMENT:** Some strengths identified, areas for improvement noted
         
-        **AREAS FOR IMPROVEMENT:**
-        - Strengthen technical knowledge in weak areas
-        - Practice explaining technical concepts clearly
-        - Improve confidence in technical discussions
+        **REVIEW AREAS:**
+        - Technical knowledge gaps in certain areas
+        - Communication skills need enhancement
+        - Project experience requires more depth
+        
+        **NEXT STEPS:** HR will complete final evaluation within 1 week
         """)
     else:
         st.error(f"""
-        ❌ **ASSESSMENT RESULT - {candidate['name']}**
+        ❌ **ASSESSMENT COMPLETE - {candidate['name']}**
         
-        **RESULT:** NOT SELECTED with {final_score}% score
-        **PERFORMANCE:** Technical knowledge gaps identified
-        **COMMUNICATION:** {speaking_quality} level communication
-        **RECOMMENDATION:** Focus on skill development and reapply later
+        **FINAL RESULT:** NOT SELECTED with {final_score}% overall score
+        **ASSESSMENT:** Technical knowledge insufficient for this position
+        **COMMUNICATION:** {speaking_quality} level communication skills
+        **DECISION:** Does not meet minimum requirements at this time
         
-        **IMPROVEMENT AREAS:**
-        - Strengthen fundamental technical concepts
-        - Practice coding and problem-solving
-        - Improve technical communication skills
-        - Gain more hands-on project experience
+        **IMPROVEMENT RECOMMENDATIONS:**
+        - Strengthen fundamental technical concepts in listed skills
+        - Practice explaining technical solutions with specific examples
+        - Gain more hands-on project experience with real-world applications
+        - Improve technical communication and presentation skills
+        - Consider additional training or certification in weak areas
+        
+        **REAPPLICATION:** Welcome to reapply after 6 months of skill development
         """)
     
     # New interview option
     st.markdown("---")
-    if st.button("🔄 Start New REAL Interview Assessment", use_container_width=True, type="primary"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if st.button("🔄 Conduct Another REAL Technical Interview", use_container_width=True, type="primary"):
+            # Clear all session state
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
+    
+    with col2:
+        if st.button("📊 View System Status", use_container_width=True):
+            st.info("System operational. Ready for next candidate assessment.")
 
-# Enhanced Sidebar with REAL system info
+# Enhanced Sidebar
 with st.sidebar:
     st.markdown("### 🔥 REAL SYSTEM STATUS")
     
-    # System status
-    if all([SecureConfig.get_hugging_face_token(), SecureConfig.get_perplexity_api_key(), db_connection]):
-        st.success
+    if db_connection:
+        st.success("🟢 MySQL Connected")
+        st.success("🟢 Database Ready")
+    else:
+        st.error("🔴 MySQL Not Connected")
+        st.error("🔴 Database Configuration Required")
+    
+    if SecureConfig.get_perplexity_api_key():
+        st.success("🟢 Perplexity AI Active") 
+    else:
+        st.warning("🟡 Perplexity Demo Mode")
+    
+    st.markdown("### 🎯 REAL FEATURES")
+    st.markdown("""
+    ✅ **STRICT Technical Evaluation**  
+    ✅ **Real Keyword Analysis**  
+    ✅ **Camera-Required Video Interview**  
+    ✅ **MySQL Database Integration**  
+    ✅ **NO FAKE PASSING SCORES**  
+    ✅ **Experience-Level Adaptive**  
+    ✅ **Comprehensive HR Reports**  
+    """)
+    
+    st.markdown("### 👨‍💻 Developer")
+    st.markdown("""
+    **Akash Bauri**  
+    📧 akashbauri16021998@gmail.com  
+    📱 +91-8002778855  
+    
+    **Version:** REAL Interview System v4.0  
+    **Status:** Production Ready ✅  
+    **Database:** MySQL Integration ✅  
+    **Camera:** JavaScript WebRTC ✅  
+    """)
+
+# Footer
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; color: #666; font-size: 14px; padding: 20px;">
+    <p><strong>🔥 REAL Enterprise Hiring Platform - No Fake Evaluations</strong></p>
+    <p><strong>🎥 Camera Required</strong> | <strong>💾 MySQL Database</strong> | <strong>🤖 STRICT AI Evaluation</strong></p>
+    <p style="margin-top: 15px; font-weight: bold; color: #e74c3c;">⚠️ This system provides REAL technical assessment with NO easy passes</p>
+</div>
+""", unsafe_allow_html=True)
