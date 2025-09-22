@@ -1,53 +1,57 @@
-# 🎯 Hiring Skilled Candidates - Enterprise AI Interview Platform
+# 🎯 Enterprise Hiring Platform - AI-Powered Interview System
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-app-url.streamlit.app)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://hiring-skilled-candidates.streamlit.app)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Security](https://img.shields.io/badge/security-compliant-green.svg)](https://github.com/features/security)
 
-> Enterprise-grade AI-powered interview platform with advanced candidate assessment, real-time evaluation, and secure data management.
+> **Advanced AI-powered candidate assessment platform with comprehensive interview automation, real-time evaluation, and enterprise-grade security.**
 
-## 🚀 Quick Start
+## 🌟 Live Demo
 
-1. **Fork this repository**
-2. **Deploy to Streamlit Cloud** (connect your GitHub repo)
-3. **Configure secrets** in Streamlit Cloud app settings
-4. **Start interviewing candidates!**
+**🔗 [Try the Live Application](https://hiring-skilled-candidates.streamlit.app)**
+
+Experience the complete interview process including AI evaluation, timer auto-advance, and comprehensive candidate assessment.
+
+---
 
 ## ✨ Key Features
 
-### 🤖 **Advanced AI Evaluation**
-- **Perplexity API** integration for intelligent question analysis
-- **Hugging Face** models for NLP processing
-- **Experience-adaptive** scoring (Fresher/Intermediate/Advanced)
-- **Comprehensive feedback** with improvement suggestions
+### 🤖 **Advanced AI Evaluation System**
+- **Perplexity API Integration** - Intelligent question analysis and candidate scoring
+- **Hugging Face Models** - Advanced NLP processing for communication assessment
+- **Experience-Adaptive Scoring** - Customized evaluation for Fresher/Intermediate/Experienced levels
+- **Real-time Feedback** - Instant comprehensive analysis with improvement suggestions
 
-### 🎯 **Complete Interview System**
-- **5 technical questions** per skill area
-- **5 project-based scenarios** for real-world assessment
-- **Live video interviews** with communication analysis
-- **Timer auto-advance** with skip functionality
+### 🎯 **Comprehensive Interview Process**
+- **Professional Voice Introduction** - 2-minute recorded introduction with AI analysis
+- **Technical Skills Assessment** - 5 personalized questions per skill area
+- **Project Experience Evaluation** - 5 real-world scenario questions
+- **Mandatory Video Interview** - Communication and presentation skills assessment
+- **Timer Auto-Advance** - Automatic progression with skip functionality
 
-### 🔒 **Enterprise Security**
-- **Secure API key management** via Streamlit secrets
-- **MySQL database integration** for candidate data
-- **No hardcoded credentials** in source code
-- **Production-ready** deployment architecture
+### 🔒 **Enterprise Security & Compliance**
+- **Secure API Key Management** - Environment-based credential storage
+- **GitHub Security Compliant** - No hardcoded secrets in source code
+- **MySQL Database Integration** - Secure candidate data storage
+- **Production-Ready Architecture** - Scalable enterprise deployment
 
-### 📊 **Comprehensive Assessment**
-- **Multi-skill evaluation** (Python, JavaScript, React, Django, MySQL, etc.)
-- **Speaking quality analysis** with 5-level proficiency scoring
-- **Real-time performance tracking** and detailed reporting
-- **Automated result storage** with HR dashboard integration
+### 📊 **Advanced Assessment Features**
+- **Multi-Skill Evaluation** - Support for Python, JavaScript, React, Django, MySQL, and more
+- **5-Level Speaking Quality Assessment** - Beginner to Proficiency rating system
+- **Comprehensive Performance Analytics** - Detailed skill-by-skill breakdown
+- **Automated Result Storage** - Direct MySQL database integration for HR teams
 
-## 🛠️ Technology Stack
+---
 
-- **Frontend:** Streamlit (Modern web framework)
-- **AI/ML:** Perplexity API, Hugging Face Transformers
-- **Database:** MySQL (Enterprise data storage)
-- **Video:** WebRTC (Real-time video processing)
-- **Deployment:** Streamlit Community Cloud
-- **Security:** Encrypted API communications, Secrets management
+## 🚀 Quick Start
 
-## 🚀 Deployment Instructions
+### **Option 1: Deploy Instantly (Recommended)**
+[![Deploy to Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/new?template=https://github.com/akashbauri/hiring-skilled-candidates)
 
-### **Step 1: Fork Repository**
+1. **Click the deploy button above**
+2. **Connect your GitHub account**
+3. **Configure secrets** in app settings (see Configuration section)
+4. **Start conducting AI-powered interviews!**
+
+### **Option 2: Local Development**
