@@ -1,2 +1,9 @@
 streamlit
 pandas
+mysql-connector-python
+requests
+transformers
+torch
+opencv-python
+streamlit-webrtc
+
