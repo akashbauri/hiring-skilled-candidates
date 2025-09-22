@@ -4,3 +4,6 @@ mysql-connector-python
 requests
 transformers
 torch
+SpeechRecognition
+pydub
+streamlit-webrtc
